@@ -29,11 +29,17 @@ const useStyles = createUseStyles({ // color codes: https://www.colorsandfonts.c
         'svg': { margin: [0, 4], verticalAlign: 'baseline', strokeWidth: 2.5 },
         'html': { scrollBehavior: 'smooth', backgroundColor: '#121319', color: '#eee' },
         'input, textarea': { border: 'none', padding: [4, 6], boxSizing: 'border-box', backgroundColor: '#121319', color: '#eee', '&:focus': { outline: [1, 'solid', '#999'] } }, // , outline: 'none', 
-        '::-webkit-scrollbar': { width: 8, height: 8 }, // https://css-tricks.com/the-current-state-of-styling-scrollbars/
+        // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
+        '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
         '::-webkit-scrollbar-thumb': { borderRadius: 4, border: '2px solid white', backgroundColor: 'rgba(0,0,0,0.4)' },
         '::-webkit-scrollbar-corner': { backgroundColor: 'transparent' },
-        '::-webkit-resizer': { backgroundColor: 'transparent' }
+        '::-webkit-resizer': { backgroundColor: 'transparent' },
+        '::-webkit-calendar-picker-indicator': { backgroundColor: 'green', color: 'red' },
+        // [number input] remove buttons
+        'input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none' },
+        // [date input] remove button
+        '::-webkit-calendar-picker-indicator': { background: 'none' }
     },
     bar: {
         position: 'relative', height: 12,
@@ -145,7 +151,7 @@ const Entry = ({ id, project, issue, spent_on, activity, hours, comments, onSele
 
 const Editor = ({ entry, onSubmit, onDismiss }) => {
     const classes = useStyles();
-    const { projects, issues, activities } = useContext(DataContext);
+    const { projects, issues, activities, days } = useContext(DataContext);
     const [minimized, setMinimized] = useState(false);
 
     const [{ y }, api] = useSpring(() => ({ y: -300, config: config.stiff }));
@@ -167,18 +173,9 @@ const Editor = ({ entry, onSubmit, onDismiss }) => {
             {minimized ? <FiMinimize2 onClick={() => setMinimized(false)} /> : <FiMaximize2 onClick={() => setMinimized(true)} />}
         </div>
         <div hidden={minimized}>
-            <select>
-                <option>option</option>
-                <option>option1</option>
-                <option>option2</option>
-                <option>option3</option>
-                <option>option4</option>
-                <option>option5</option>
-            </select>
             <div style={{ display: 'flex', borderBottom: '1px solid #555' }}>
                 <label><FiPackage /></label>
                 <Select placeholder={'Project'}
-                    focus={true}
                     style={{ flexGrow: 1 }}
                     value={project} values={projects}
                     render={item => <div title={item.description}>{item.name}</div>}
@@ -189,11 +186,12 @@ const Editor = ({ entry, onSubmit, onDismiss }) => {
             <div style={{ display: 'flex', borderBottom: '1px solid #555' }} tabIndex={-1}>
                 <label><FiHash /></label>
                 <Select placeholder={'Issue'}
+                    focus={true}
                     style={{ flexGrow: 1 }}
                     value={issue} values={issues}
                     render={(item, short) => short ? <div>#{item.id} {item.subject}</div> : <div title={item.description}>#{item.id} {item.project.name}<br />{item.subject}</div>}
                     stringlify={item => item.id}
-                    filter={filter => item => filter.test(item.subject)}
+                    filter={filter => item => filter.test(item.subject) || filter.test(item.id)}
                     onChange={issue => setEntry(entry => ({ ...entry, issue, project: issue?.project }))} />
             </div>
             <div style={{ display: 'flex', borderBottom: '1px solid #555' }}>
@@ -212,6 +210,14 @@ const Editor = ({ entry, onSubmit, onDismiss }) => {
             </div>
             <Textarea onChange={event => setEntry(entry => ({ ...entry, comments: event.target.value }))} value={comments} style={{ color: '#777', width: '100%', resize: 'none', padding: 4, border: 'none', boxSizing: 'border-box' }} />
             <div>
+                <Select placeholder={'Spent on'}
+                    style={{ flexGrow: 1 }}
+                    value={spent_on} values={days}
+                    // render={item => <div>{item.name}</div>}
+                    // stringlify={item => item.id}
+                    // filter={filter => item => filter.test(item.name)}
+                    onChange={(spent_on) => setEntry(entry => ({ ...entry, spent_on }))} />
+
                 <input type={'date'} value={spent_on || ''} onChange={event => setEntry(entry => ({ ...entry, spent_on: event.target.value }))} />
                 <button><FiCalendar /></button>
                 <button onClick={() => onSubmit({ activity, hours, project, issue, comments })}><FiCheck /></button>
@@ -222,14 +228,6 @@ const Editor = ({ entry, onSubmit, onDismiss }) => {
 }
 
 const DataContext = React.createContext()
-const Test = () => {
-    const { activities } = useContext(DataContext);
-    const [toggle, setToggle] = useState(false);
-    return <div>
-        <button onClick={() => setToggle(toggle => !toggle)}>Click</button>
-        {activities?.map(a => <li key={a.id}>{a.name}</li>)}
-    </div>
-};
 
 const Day = ({ day, open, entries, onOpen, onEntrySelect }) => {
     const classes = useStyles();
@@ -277,7 +275,7 @@ const Popup = () => {
     const [error, setError] = useState();
     const [entries, setEntries] = useState();
     const [tasks, setTasks] = useState();
-    const data = useRef({ issues: [], projects: [], activities: [], settings: {} });
+    const data = useRef({ issues: [], projects: [], activities: [], days: [], settings: {} });
     // const settings = data.current.settings;
     const days = [...Array(setup.days)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD')) || [];
     const [day, setDay] = useState(dayjs().format('YYYY-MM-DD'));
@@ -292,7 +290,7 @@ const Popup = () => {
         //     console.log(response);
         // });
     };
-    const [entry, setEntry] = useState({});
+    const [entry, setEntry] = useState({ spent_on: open });
     const onEntrySelect = (entry) => () => setEntry(entry);
 
     const onMessage = (message, sender) => {
@@ -320,8 +318,8 @@ const Popup = () => {
         const projects = await database.table('projects').toArray();
         const all = await settings.get();
         console.log(all);
-        const { url, key, days, hours } = await settings.get(['url', 'key', 'days', 'hours']);
-        data.current = { issues, activities, projects, settings: { url, key, days, hours } };
+        const x = await settings.get(['url', 'key', 'days', 'hours']);
+        data.current = { issues, activities, projects, days, settings: x };
         setEntries(entries); // NOTE: bached updates in React 19
         setTasks(tasks);
     };

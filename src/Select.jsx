@@ -21,125 +21,95 @@ const useStyles = createUseStyles({
             display: 'flex', flexDirection: 'column',
             color: '#000', backgroundColor: '#fff',
             '&:hidden': { display: 'none' },
-            '&[reverse]': { bottom: 32, flexDirection: 'column-reverse' },
             '&>div': { flexShrink: 0, padding: [4, 6], cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
             '&>div[active]': { borderLeft: '4px solid #80bdff', backgroundColor: '#eee' }
         }
-    },
-    list: {
-        position: 'relative',
-
     }
 });
 
-const Select = ({ value: current, values, disabled, placeholder, className, focus, stringlify = value => value, render = value => value, filter = exp => value => exp.test(value), onChange = value => { }, ...props }) => {
+const step = 20;
+const tolerance = 50;
+
+const Select = ({ value: current, values, placeholder, focus, stringlify = value => value, render = value => value, filter = exp => value => exp.test(value), onChange = value => { }, ...props }) => {
     const classes = useStyles();
-    const refs = useRef({ button: undefined, input: undefined, list: undefined, reverse: false, timeout: undefined });
-
-    const step = 20;
-    const tolerance = 50;
+    const refs = useRef({ input: undefined, list: undefined, timeout: undefined });
     const [limit, setLimit] = useState(step);
-    const bindScroll = useGesture({
-        onScrollEnd: ({ event: { target } }) => {
-            if (target.scrollTop < tolerance) return setLimit(step);
-            if (target.scrollTop > target.scrollHeight - target.clientHeight - tolerance) return setLimit(count => count + step);
-        }
-    });
+    const [search, setSearch] = useState({ value: '', index: -1, active: false });
+    const filtered = useMemo(() => {
+        const exp = RegExp((search.value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); // https://stackoverflow.com/a/6969486
+        return values?.filter(filter(exp)) || [];
+    }, [search.value, values]);
 
-    const [search, setSearch] = useState({ filter: '', index: -1, active: false });
-    const bindBase = () => ({
-        onBlur: () => refs.current.timeout = setTimeout(() => setSearch(search => ({ ...search, active: false })), 100), // -> start hide options timeout
-        onFocus: () => clearTimeout(refs.current.timeout), // -> cancel hide options timeout
-        tabIndex: -1 // needed to detect focus/blur events
-    });
-    const bindSearch = () => ({
-        onClick: () => setSearch(search => ({ ...search, active: !search.active })), // -> toggle options
-        onChange: (event) => setSearch(search => ({ ...search, filter: event.target.value, index: 0, active: true })), // -> show options
-        onKeyDown: (event) => {
-            const getIndex = (filtered, index, diff) => filtered[index + diff] ? index + diff : diff < 0 ? 0 : index;
-            const { which } = event;
-            const { button, reverse } = refs.current;
-            if (which === 46) return onValueChange() || event.preventDefault(); // delete -> remove selected value
-            if (which === 40) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, reverse ? -1 : 1) })) || event.preventDefault(); // down -> select next option
-            if (which === 38) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, reverse ? 1 : -1) })) || event.preventDefault(); // up -> select prev option
-            if (which === 32) return search.filter || setSearch(search => ({ ...search, index: 0, active: !search.active })) || event.preventDefault(); // space (first) -> toggle options
-            if (which === 27) return setSearch(search => ({ ...search, active: false })); // esc -> hide options
-            if (which === 13) return filtered[search.index] && onValueChange(filtered[search.index]) || event.preventDefault(); // enter -> change selected value
-            // if (which === 9) return filtered[search.index] && onValueChange(filtered[search.index]); // tab
-            // console.log(event);
-        }
-    });
-    // const onSearchChange = (event) => setSearch(search => ({ ...search, filter: event.target.value, index: 0, active: true }));
-    // const onSearchActive = (active) => (e) => {
-    //     if (active) clearTimeout(refs.current.timeout);
-    //     else refs.current.timeout = setTimeout(() => setSearch(search => ({ ...search, active })), 100);
-    //     // refs.current.focus = active;
-    //     // active && refs.current.input.focus();
-    //     // const { height } = document.body.getBoundingClientRect();
-    //     // const { bottom } = refs.current.input.getBoundingClientRect();
-    //     // refs.current.reverse = height - 120 < bottom;
-    // };
-    // const onSearchNavigate = (event) => {
-    //     const getIndex = (filtered, index, diff) => filtered[index + diff] ? index + diff : diff < 0 ? 0 : index;
-    //     const { which } = event;
-    //     const { button, reverse } = refs.current;
-    //     if (which === 38) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, reverse ? 1 : -1) })) || event.preventDefault(); // up
-    //     if (which === 40) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, reverse ? -1 : 1) })) || event.preventDefault(); // down
-    //     if (which === 13) return onValueChange(filtered[search.index]) || event.preventDefault(); // enter
-    //     if (which === 32) return search.filter || setSearch(search => ({ ...search, active: !search.active })) || event.preventDefault(); // space
-    //     if (which === 27) return setSearch(search => ({ ...search, active: false })); // esc
-    // }
-    const onValueHover = (index) => () => setSearch(search => ({ ...search, index })); // hover
-    const onValueClick = (value) => () => onValueChange(value);
-    const onValueChange = (value) => {
-        console.log('onValueChange', value, current);
+    const getIndex = (filtered, index, diff) => filtered[index + diff] ? index + diff : diff < 0 ? 0 : index;
+    const setValue = (value) => {
         value !== current && onChange(value);
-        setSearch({ filter: '', index: -1, active: false });
+        setSearch({ value: '', index: -1, active: false });
         refs.current.input.focus();
     };
-    const filtered = useMemo(() => {
-        const exp = RegExp((search.filter).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); // https://stackoverflow.com/a/6969486
-        return values?.filter(filter(exp)) || [];
-    }, [search.filter, values]);
-    // useEffect(() => {
-    //     console.log('useEffect', current);
-    //     clearTimeout(refs.current.timeout);
-    //     if (current) setSearch(search => ({ ...search, active: false }));
-    // }, [current]);
-    useEffect(() => {
-        const element = refs.current?.list?.children[search.index];
-        if (!element) return;
-        element.scrollIntoView({ block: 'nearest' });
+
+    const propsBase = ({
+        onBlur: () => refs.current.timeout = setTimeout(() => setSearch(search => ({ ...search, active: false })), 100), // -> start list hide timeout
+        onFocus: () => clearTimeout(refs.current.timeout), // -> cancel list hide timeout
+        tabIndex: -1, // needed to detect focus/blur events
+        className: classes.base,
+        ...props
+    });
+    const propsClear = ({
+        onClick: () => setValue() // clear current value
+    });
+    const propsToggle = ({
+        onClick: () => setSearch(search => ({ ...search, active: !search.active })) || refs.current.input.focus() // -> toggle list and focus input
+    });
+    const propsInput = ({
+        ref: ref => refs.current.input = ref,
+        placeholder: !search.active && !current && placeholder || null,
+        value: search.active && search.value || '',
+        onClick: () => setSearch(search => ({ ...search, active: !search.active })), // -> toggle list
+        onChange: (event) => setSearch(search => ({ ...search, value: event.target.value, index: 0, active: true })), // -> show list
+        onKeyDown: (event) => {
+            const { which } = event;
+            if (which === 46) return setValue() || event.preventDefault(); // delete -> clear current value
+            if (which === 40) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, +1) })) || event.preventDefault(); // down -> select next option
+            if (which === 38) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, -1) })) || event.preventDefault(); // up -> select prev option
+            if (which === 32) return search.value || setSearch(search => ({ ...search, index: 0, active: !search.active })) || event.preventDefault(); // space (first) -> toggle list
+            if (which === 27) return setSearch(search => ({ ...search, active: false })); // esc -> hide list
+            if (which === 13) return filtered[search.index] && setValue(filtered[search.index]) || event.preventDefault(); // enter -> change current value
+        }
+    });
+    const propsList = ({
+        ref: ref => refs.current.list = ref,
+        ...useGesture({
+            onScrollEnd: ({ event }) => {
+                const { target: { scrollTop, scrollHeight, clientHeight } } = event;
+                if (scrollTop < tolerance) return setLimit(step);
+                if (scrollTop > scrollHeight - clientHeight - tolerance) return setLimit(count => count + step);
+            }
+        })()
+    });
+    const propsItem = (value, index) => ({
+        key: stringlify(value),
+        active: index === search.index ? 'true' : null,
+        onClick: () => setValue(value),
+        onMouseEnter: () => setSearch(search => ({ ...search, index }))
+    });
+
+    useEffect(() => { // scroll to selected option
+        const element = refs.current.list?.children[search.index];
+        element && element.scrollIntoView({ block: 'nearest' });
     }, [search.index]);
-    useEffect(() => {
+    useEffect(() => { // focus on start
         focus && refs.current.input.focus();
     }, []);
-    // useEffect(() => {
-    //     if (!search.active) return;
-    //     setSearch(search => ({ ...search, filter: '', index: -1 }));
-    //     refs.current.input.focus()
-    // }, [search.active]);
-    return <div className={classes.base} {...props} {...bindBase()}>
+    return <div {...propsBase}>
         <label>
-            <div>{!search.filter && current && render(current, true) || null}</div>
-            {current && <FiX onClick={() => onValueChange()} />}
+            <div>{!search.value && current && render(current, true) || null}</div>
+            {current && <FiX {...propsClear} />}
             {/* {current && <FiExternalLink />} */}
-            {search.active ? <FiChevronsDown /> : <FiChevronDown />}
+            {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
-        <input
-            ref={ref => refs.current.input = ref}
-            placeholder={!search.active && !current && placeholder || null}
-            {...bindSearch()}
-            // onChange={onSearchChange}
-            // onKeyDown={onSearchNavigate}
-            // disabled={disabled || !values[0]}
-            className={className}
-            value={search.active && search.filter || ''} />
-        {search.active && <div ref={ref => refs.current.list = ref} {...bindScroll()}>
-            {filtered?.slice(0, limit).map((value, index) =>
-                <div key={stringlify(value)} active={index === search.index ? 'true' : null} onClick={onValueClick(value)} onMouseEnter={onValueHover(index)}>
-                    {render(value)}
-                </div>)}
+        <input {...propsInput} />
+        {search.active && <div {...propsList}>
+            {filtered?.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>{render(value)}</div>)}
         </div>}
     </div>;
 };
