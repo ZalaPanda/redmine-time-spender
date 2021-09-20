@@ -1,8 +1,8 @@
 import dayjs from 'dayjs';
-import { database, settings, log } from './storage.js';
+import { database, storage, log } from './storage.js';
 import secret from '../secret.json';
 
-settings.set(secret);
+storage.set(secret);
 
 const refreshProjects = async (url, key) => { // full sync
     try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_Projects#Listing-projects
@@ -60,44 +60,10 @@ const refreshEntries = async (url, key, days) => {
             entries.push(...chunk); // { id, project, issue, user, activity, hours, comments, spent_on, created_on, updated_on }
             if (total <= limit + offset) break;
         }
-        if (last && entries.find(entry => entry.updated_on > last.updated_on)) return;
+        // if (last && entries.find(entry => entry.updated_on > last.updated_on)) return;
         await database.table('entries').bulkPut(entries);
     } catch (error) {
         await log('refreshEntries', error);
-    }
-};
-
-const updateEntry = async ({ id, issue, project, spent_on, hours, activity }) => {
-    try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry
-        const { url, key } = await settings.get({ url: null, key: null });
-        const body = JSON.stringify({
-            time_entry: {
-                issue_id: issue?.id,
-                project_id: project?.id,
-                spent_on: spent_on,
-                hours: hours,
-                activity_id: activity?.id
-            }
-        });
-        const req = await fetch(`${url}/time_entries${id ? `/${id}` : ''}.json`, { headers: { 'X-Redmine-API-Key': key }, method: id ? 'PUT' : 'POST', body });
-        const update = await req.json();
-        await database.entries.put(update); // NOTE: update or use the redmine version?!?
-        await log('updateEntry', update);
-        return update;
-    } catch (error) {
-        await log('updateEntry', error);
-    }
-};
-
-const deleteEntry = async ({ id }) => {
-    try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Deleting-a-time-entry
-        const { url, key } = await settings.get({ url: null, key: null });
-        const req = await fetch(`${url}/time_entries/${id}.json`, { headers: { 'X-Redmine-API-Key': key }, method: 'DELETE' });
-        if (!req.ok) throw req.statusText;
-        await database.entries.delete(id);
-        await log('deleteEntry', update);
-    } catch (error) {
-        await log('updateEntry', error);
     }
 };
 
@@ -147,7 +113,7 @@ chrome.runtime.onStartup.addListener(() => {
 // };
 
 const test = async () => {
-    const { kpi } = await settings.get('kpi');
+    const { kpi } = await storage.get('kpi');
     try {
         const req = await fetch('https://zalnt238.europe.ad.flextronics.com/TestKPI/login.asp');
         const res = await req.text();
@@ -161,7 +127,7 @@ const test = async () => {
             message: req.statusText || '?',
             priority: 2
         });
-        settings.set({ kpi: true });
+        storage.set({ kpi: true });
     } catch (error) {
         log('test', error);
         if (!kpi) return;
@@ -173,7 +139,7 @@ const test = async () => {
             message: error?.toString() || '?',
             priority: 2
         });
-        settings.set({ kpi: false });
+        storage.set({ kpi: false });
     }
 };
 
@@ -224,17 +190,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     if (request.type === 'refresh') {
         const refresh = async () => {
-            const { url, key, days } = await settings.get({ url: null, key: null, days: null });
-            refreshProjects(url, key);
-            refreshActivities(url, key);
-            refreshIssues(url, key);
+            const { url, key, days } = await storage.get(['url', 'key', 'days']);
+            // refreshProjects(url, key);
+            // refreshActivities(url, key);
+            // refreshIssues(url, key);
             refreshEntries(url, key, days);
+            // chrome.runtime.sendMessage({ updated: ... });
         }
         refresh();
         // sendResponse('ok');
         // chrome.runtime.sendMessage({ entries: await database.entries.toArray() });
         // sendResponse();
-        // return true;
+        return true;
     }
     return true;
 });
