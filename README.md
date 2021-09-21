@@ -21,3 +21,11 @@ Login with username filled: https://redmine.bhu.flextronics.com/login?username=z
 https://www.redmine.org/projects/redmine/wiki/Rest_api
 https://www.redmine.org/projects/redmine/wiki/Rest_Enumerations -> `/enumerations/time_entry_activities.json`
 https://www.redmine.org/projects/redmine/wiki/Rest_Projects -> `/projects.json?limit=100`
+
+TODO
+====
+* fix background refresh
+* reload on force refresh
+* check background script module support
+* task features: color/stopper/notes?/update/delete
+* animation on day select

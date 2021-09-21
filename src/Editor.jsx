@@ -5,6 +5,7 @@ import { useSpring, animated, config } from 'react-spring';
 import Select from './Select.jsx';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2 } from 'react-icons/fi';
 import { database, useAsyncEffect } from './storage.js';
+import { useSettings } from './Popup.jsx';
 
 const useStyles = createUseStyles(theme => ({
     base: {
@@ -36,27 +37,31 @@ const Textarea = (props) => {
     return <textarea ref={element} {...props} />
 };
 
-export const Editor = ({ entry, url, onSubmit, onDuplicate, onDismiss, onDelete }) => {
+export const Editor = ({ entry, onSubmit, onDuplicate, onDismiss, onDelete }) => {
     const classes = useStyles();
+    const { url } = useSettings();
     const lists = useRef({ projects: [], issues: [], activities: [] });
     const { current: { projects, issues, activities } } = lists;
     const [minimized, setMinimized] = useState(false);
 
-    const [{ y, scale }, setSprings] = useSpring(() => ({ y: -300, scale: 1, config: config.stiff }));
-    const bind = useDrag(({ down, movement: [_, y] }) => setSprings.start({ y, scale: down ? 1.05 : 1 }), { delay: true, initial: () => [0, y.get()] });
+    const [{ y, scale }, setSpring] = useSpring(() => ({ y: -300, scale: 1, config: config.stiff, immediate: true }));
+    const bind = useDrag(({ down, movement: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, initial: () => [0, y.get()] });
     useAsyncEffect(async () => {
         lists.current.projects = await database.table('projects').toArray();
         lists.current.issues = await database.table('issues').filter(issue => !issue.closed_on).toArray();
         lists.current.activities = await database.table('activities').toArray();
     }, undefined, []);
     useAsyncEffect(async () => {
+        await Promise.all(setSpring.start({ y: -300 }));
         setEntry(entry || {});
-        setSprings.start({
-            to: async (next) => {
-                await next({ y: -300 });
-                entry && await next({ y: 0 });
-            }
-        });
+        entry && await Promise.all(setSpring.start({ y: 0 }));
+
+        // setSprings.start({
+        //     to: async (next) => {
+        //         await next({ y: -300 });
+        //         entry && await next({ y: 0 });
+        //     }
+        // });
     }, undefined, [entry]);
 
     const [{ id, project, issue, activity, hours, comments, spent_on }, setEntry] = useState({});

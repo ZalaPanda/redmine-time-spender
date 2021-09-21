@@ -1,6 +1,6 @@
 export const themes = { // https://spectrum.adobe.com/page/color/
     light: {
-        font: '#121319', background: '#EEEEEE',
+        font: '#333333', background: '#FFFFFF',
         gray50: '#BBC9D0', gray100: '#B1C1C9', gray150: '#A6B9C2', gray200: '#9CB0BA', gray300: '#87A0AC', gray400: '#718F9D',
         gray500: '#607D8B', gray600: '#4F6773', gray700: '#3F525B', gray750: '#36474F', gray800: '#2E3C43', gray850: '#263137'
     },
@@ -24,13 +24,3 @@ export const themes = { // https://spectrum.adobe.com/page/color/
         green400: '#2d9d78', green500: '#33ab84', green600: '#39b990', green700: '#3fc89c'
     }
 };
-
-// const Root = () => {
-//     const dark = localStorage.getItem('theme') === 'dark';
-//     const theme = dark ? themes.dark : themes.light;
-//     return <JssProvider id={{ minify: false }}>
-//         <ThemeProvider theme={theme}>
-//             <EmitterProvider><App /><Alert /></EmitterProvider>
-//         </ThemeProvider>
-//     </JssProvider>;
-// };

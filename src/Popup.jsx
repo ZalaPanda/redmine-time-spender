@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useContext, useState, useEffect, useMemo } from 'react';
+import { Globals } from 'react-spring';
 import { ThemeProvider, createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
@@ -95,8 +96,8 @@ const Entry = ({ project, issue, activity, hours, comments, onSelect }) => {
     return <div style={{ margin: 2, border: '1px solid #333', padding: 8 }}>
         <div className={classes.hours}>
             <svg height="50" width="50">
-                <circle cx="25" cy="25" r="20.5" stroke="#263137" strokeWidth="6" fill="none" />
-                <circle cx="25" cy="25" r="20.5" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" />
+                <circle cx="25" cy="25" r="20.5" stroke="#263137" strokeWidth="6" fill="none" /> {/* TODO: theme.gray50 */}
+                <circle cx="25" cy="25" r="20.5" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" /> {/* TODO: theme.green500 */}
             </svg>
             <b style={{ position: 'absolute' }}>{hours}h</b>
             <button onClick={onSelect}><FiEdit /></button>
@@ -130,25 +131,19 @@ const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
     </>
 };
 
-// const DataContext = React.createContext();
-// const DataProvider = DataContext.Provider;
-// const useData = () => useContext(DataContext);
-
 const Layout = () => {
     const classes = useStyles();
     const [tasks, setTasks] = useState([]);
     const [error, setError] = useState();
     const [entries, setEntries] = useState([]);
-    const [settings, setSettings] = useState({});
+    const settings = useSettings();
     useAsyncEffect(async ({ aborted }) => {
-        const settings = await storage.get(['url', 'key', 'days', 'hours']);
         const tasks = await database.table('tasks').reverse().toArray();
         const entries = await database.table('entries').toArray();
         const issues = await database.table('issues').bulkGet([...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))]);
         if (aborted) return;
-        setSettings(settings); // NOTE: batched updates in React 19
         setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
-        setTasks(tasks);
+        setTasks(tasks); // NOTE: batched updates in React 19
     }, undefined, []);
 
     const days = [...Array(settings.days)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
@@ -183,13 +178,13 @@ const Layout = () => {
             }
         }
     });
-    const onTaskDone = (id, done) => async () => {
+    const onTaskDone = (id, done) => async () => { // TODO: create Task.jsx
         const props = { done, updated_on: dayjs().toJSON() };
         await database.table('tasks').update(id, props);
         setTasks(tasks => tasks.map(task => task.id === id ? { ...task, ...props } : task));
     };
     const propsEditor = (entry) => ({
-        entry, url: settings.url,
+        entry,
         onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
             try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry
                 const { url, key } = settings;
@@ -272,14 +267,23 @@ const Layout = () => {
     </div>;
 };
 
+const SettingsContext = React.createContext();
+const SettingsProvider = SettingsContext.Provider;
+export const useSettings = () => useContext(SettingsContext);
+
 const Popup = () => {
-    const [theme, setTheme] = useState();
+    const [settings, setSettings] = useState();
+    const theme = themes[settings?.theme] || themes['dark'];
     useAsyncEffect(async ({ aborted }) => {
-        const settings = await storage.get('theme');
+        const settings = await storage.get();
         if (aborted) return;
-        setTheme(themes[settings.theme] || themes['dark']);
+        setSettings(settings);
+        const { skipAnimation } = settings;
+        skipAnimation && Globals.assign({ skipAnimation }); // turn off spring animations
     }, undefined, []);
-    return theme && <ThemeProvider theme={theme}><Layout /></ThemeProvider> || null;
+    return settings && <SettingsProvider value={settings}>
+        <ThemeProvider theme={theme}><Layout /></ThemeProvider>
+    </SettingsProvider> || null;
 };
 
 export default Popup;
