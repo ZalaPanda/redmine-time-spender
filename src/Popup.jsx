@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ThemeProvider, createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { FiRefreshCw, FiClock, FiX, FiEdit } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiX, FiEdit, FiCheckSquare, FiPlusSquare, FiCircle, FiCheckCircle } from 'react-icons/fi';
 import { database, storage, useAsyncEffect } from './storage.js';
 import { themes } from './themes.js';
 import { Editor } from './Editor.jsx';
@@ -59,7 +59,7 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         '&>b, &>svg, &>button': { position: 'absolute', padding: 0, margin: 0 },
         '&>button': {
             width: 0, height: 36, border: 'none', borderRadius: 18, overflow: 'hidden',
-            backgroundColor: theme.gray200, color: theme.font, 
+            backgroundColor: theme.gray200, color: theme.font,
             '&:focus': { width: 36 },
             '&>svg': { fontSize: '1.2rem' },
         },
@@ -142,7 +142,7 @@ const Layout = () => {
     const [settings, setSettings] = useState({});
     useAsyncEffect(async ({ aborted }) => {
         const settings = await storage.get(['url', 'key', 'days', 'hours']);
-        const tasks = await database.table('tasks').toArray();
+        const tasks = await database.table('tasks').reverse().toArray();
         const entries = await database.table('entries').toArray();
         const issues = await database.table('issues').bulkGet([...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))]);
         if (aborted) return;
@@ -170,9 +170,27 @@ const Layout = () => {
         }
         throw req.statusText;
     }
+    const propsTask = ({
+        placeholder: 'Add task',
+        onKeyDown: async (event) => {
+            const { which, target: { value } } = event;
+            if (which === 13) {
+                const props = { value, done: false, color: 'green', created_on: dayjs().toJSON(), updated_on: dayjs().toJSON() };
+                const id = await database.table('tasks').add(props);
+                const task = { id, ...props };
+                setTasks(tasks => [task, ...tasks]);
+                event.target.value = '';
+            }
+        }
+    });
+    const onTaskDone = (id, done) => async () => {
+        const props = { done, updated_on: dayjs().toJSON() };
+        await database.table('tasks').update(id, props);
+        setTasks(tasks => tasks.map(task => task.id === id ? { ...task, ...props } : task));
+    };
     const propsEditor = (entry) => ({
-        entry,
-        onSubmit: async ({ id, activity, hours, project, issue, comments, spent_on }) => {
+        entry, url: settings.url,
+        onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
             try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry
                 const { url, key } = settings;
                 const body = JSON.stringify({
@@ -184,13 +202,16 @@ const Layout = () => {
                     }
                 });
                 if (id) { // update
-                    const put = await fetch(`${url}/time_entries/${id}.json`, { headers: { 'Content-Type': 'application/json', 'X-Redmine-API-Key': key }, method: 'PUT', body });
-                    if (!put.ok) await throwRedmineError(put); // 204 No Content: time entry was updated
-                    const req = await fetch(`${url}/time_entries/${id}.json`, { headers: { 'X-Redmine-API-Key': key }, method: 'GET' }); // TODO: how to get `updated_on`?
-                    if (!req.ok) await throwRedmineError(req);
-                    const { time_entry: update } = await req.json(); // 200 OK
-                    await database.table('entries').put(update);
-                    setEntries(entries => entries.map(entry => entry.id === id ? { ...update, issue } : entry));
+                    const req = await fetch(`${url}/time_entries/${id}.json`, { headers: { 'Content-Type': 'application/json', 'X-Redmine-API-Key': key }, method: 'PUT', body });
+                    if (!req.ok) await throwRedmineError(req); // 204 No Content: time entry was updated
+                    const update = { // Prop `updated_on` not updated -> refresh by `background.js`
+                        ...project && { project: { id: project.id, name: project.name } },
+                        ...issue && { issue: { id: issue.id } },
+                        ...activity && { activity: { id: activity.id, name: activity.name } },
+                        hours, comments, spent_on
+                    };
+                    await database.table('entries').update(id, update);
+                    setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, issue } : entry));
                 } else { // create
                     const req = await fetch(`${url}/time_entries.json`, { headers: { 'Content-Type': 'application/json', 'X-Redmine-API-Key': key }, method: 'POST', body });
                     if (!req.ok) throw throwRedmineError(req); // 201 Created: time entry was created
@@ -235,7 +256,15 @@ const Layout = () => {
     }, []);
     return <div style={{ width: 460 }}>
         <Editor {...propsEditor(entry)} />
+        <input {...propsTask} />
+        <button onClick={onRefresh}><FiPlusSquare /></button>
+        <button onClick={onRefresh}><FiCheckSquare /></button>
         <button onClick={onRefresh}><FiRefreshCw /></button>
+        {tasks.map(({ id, color, done, value, created_on, updated_on }) => <div key={id} title={`Created ${dayjs().to(created_on, true)} ago\nUpdated ${dayjs().to(updated_on, true)} ago`}>
+            <label style={{ color }}>{done ? <FiCheckCircle onClick={onTaskDone(id, false)} /> : <FiCircle onClick={onTaskDone(id, true)} />}</label>
+            <input style={{ padding: 0, margin: 0, textDecoration: done ? 'line-through' : 'none' }} value={value} />
+            {/* <label style={{ textDecoration: done ? 'line-through' : 'none' }}>{value}</label> */}
+        </div>)}
         {/* <button onClick={() => raiseToast('testing2')}>Task</button> */}
         {/* <button style={{ backgroundColor: '#999' }}>Time</button> */}
         {days.map(day => <Day {...propsDay(day)} />)}

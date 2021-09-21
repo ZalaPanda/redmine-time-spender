@@ -28,7 +28,7 @@ const useStyles = createUseStyles(theme => ({
 const step = 20;
 const tolerance = 50;
 
-const Select = ({ value: current, values, placeholder, focus, stringlify = value => value, render = value => value, filter = exp => value => exp.test(value), onChange = value => { }, ...props }) => {
+const Select = ({ value: current, values, placeholder, focus, stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), onChange = value => { }, ...props }) => {
     const classes = useStyles();
     const refs = useRef({ input: undefined, list: undefined, timeout: undefined });
     const [limit, setLimit] = useState(step);
@@ -37,6 +37,7 @@ const Select = ({ value: current, values, placeholder, focus, stringlify = value
         const exp = RegExp((search.value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); // https://stackoverflow.com/a/6969486
         return values?.filter(filter(exp)) || [];
     }, [search.value, values]);
+    const url = useMemo(() => current && linkify(current), [current]);
 
     const getIndex = (filtered, index, diff) => filtered[index + diff] ? index + diff : diff < 0 ? 0 : index;
     const setValue = (value) => {
@@ -51,6 +52,9 @@ const Select = ({ value: current, values, placeholder, focus, stringlify = value
         tabIndex: -1, // needed to detect focus/blur events
         className: classes.base,
         ...props
+    });
+    const propsLink = ({
+        onClick: () => chrome.tabs.create({ url }) // open in new tab
     });
     const propsClear = ({
         onClick: () => setValue() // clear current value
@@ -95,14 +99,14 @@ const Select = ({ value: current, values, placeholder, focus, stringlify = value
         const element = refs.current.list?.children[search.index];
         element && element.scrollIntoView({ block: 'nearest' });
     }, [search.index]);
-    // useEffect(() => { // focus on start
-    //     focus && refs.current.input.focus();
-    // }, []);
+    useEffect(() => { // focus on change
+        focus && refs.current.input.focus();
+    }, [focus]);
     return <div {...propsBase}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
+            {url && <FiExternalLink {...propsLink} />}
             {current && <FiX {...propsClear} />}
-            {/* {current && <FiExternalLink />} */}
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
         <input {...propsInput} />

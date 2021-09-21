@@ -8,15 +8,22 @@ import { database, useAsyncEffect } from './storage.js';
 
 const useStyles = createUseStyles(theme => ({
     base: {
-        position: 'fixed', zIndex: 1, width: 460, backgroundColor: theme.background, border: [2, 'solid', theme.gray600], margin: 10,
+        position: 'fixed', zIndex: 1, width: 460, backgroundColor: theme.background, border: [1, 'solid', theme.gray200], margin: 8, padding: 8,
         '&>div:first-child': {
-            display: 'flex', alignItems: 'center', padding: [0, 10], userSelect: 'none', cursor: 'grab', backgroundColor: theme.gray200,
+            display: 'flex', alignItems: 'center', padding: [0, 10], userSelect: 'none', cursor: 'grab', backgroundColor: theme.gray50, color: theme.gray850, fontWeight: 'bold',
             '&:active': { cursor: 'grabbing' }
         },
     },
     fields: {
-        '&>div': { display: 'flex', alignItems: 'center', padding: 2, borderBottom: [1, 'solid', theme.gray50], '&>div, &>textarea': { flexGrow: 1 } },
-        // '&>div:focus-within': { backgroundColor: theme.gray50 }
+        '&>div': {
+            display: 'flex', alignItems: 'center', padding: 2, borderTop: [1, 'solid', theme.gray50],
+            '&>label': { color: theme.gray400 }, // label with svg icon
+            '&>div': { flexGrow: 1 }, // project, issue, activity
+            '&>textarea': { flexGrow: 1, color: '#888' } // comments
+        },
+        '&>div:focus-within': {
+            '&>label': { color: theme.gray850 }, // label with svg icon
+        }
     }
 }));
 
@@ -29,7 +36,7 @@ const Textarea = (props) => {
     return <textarea ref={element} {...props} />
 };
 
-export const Editor = ({ entry, onSubmit, onDuplicate, onDismiss, onDelete }) => {
+export const Editor = ({ entry, url, onSubmit, onDuplicate, onDismiss, onDelete }) => {
     const classes = useStyles();
     const lists = useRef({ projects: [], issues: [], activities: [] });
     const { current: { projects, issues, activities } } = lists;
@@ -65,16 +72,18 @@ export const Editor = ({ entry, onSubmit, onDuplicate, onDismiss, onDelete }) =>
                     value={project} values={projects}
                     render={item => <div title={item.description}>{item.name}</div>}
                     stringlify={item => item.id}
+                    linkify={item => `${url}/projects/${item.id}`}
                     filter={filter => item => filter.test(item.name)}
                     onChange={project => setEntry(entry => ({ ...entry, project, issue: undefined }))} />
             </div>
             <div>
                 <label title={'Issue'}><FiHash /></label>
                 <Select placeholder={'Issue'}
-                    focus={true}
+                    focus={id} // TODO: check this
                     value={issue} values={issues}
                     render={(item, short) => short ? <div>#{item.id} {item.subject}</div> : <div title={item.description}>#{item.id} {item.project.name}<br />{item.subject}</div>}
                     stringlify={item => item.id}
+                    linkify={item => `${url}/issues/${item.id}`}
                     filter={filter => item => filter.test(item.subject) || filter.test(item.id)}
                     onChange={issue => setEntry(entry => ({ ...entry, issue, project: issue?.project || entry.project }))} />
             </div>
@@ -95,11 +104,11 @@ export const Editor = ({ entry, onSubmit, onDuplicate, onDismiss, onDelete }) =>
                     value={comments || ''} onChange={event => setEntry(entry => ({ ...entry, comments: event.target.value }))} />
             </div>
             <div>
-                <button title={'Submit'} onClick={() => onSubmit({ id, activity, hours, project, issue, comments, spent_on })}><FiCheck /></button>
-                <button title={'Duplicate'} onClick={() => onDuplicate({ activity, hours, project, issue, comments, spent_on })}><FiCopy /></button>
+                <button title={'Submit'} onClick={() => onSubmit({ id, project, issue, hours, activity, comments, spent_on })}><FiCheck /></button>
+                <button title={'Duplicate'} onClick={() => onDuplicate({ project, issue, hours, activity, comments, spent_on })}><FiCopy /></button>
                 <button title={'Close'} onClick={() => onDismiss()}><FiX /></button>
-                <input title={'Spent on'} type={'date'}
-                    value={spent_on || ''} onChange={event => setEntry(entry => ({ ...entry, spent_on: event.target.value }))} />
+                <div><input title={'Spent on'} type={'date'}
+                    value={spent_on || ''} onChange={event => setEntry(entry => ({ ...entry, spent_on: event.target.value }))} /></div>
                 <button title={'Delete'} onClick={() => onDelete({ id })}><FiTrash2 /></button>
             </div>
         </div>
