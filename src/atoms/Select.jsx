@@ -28,7 +28,7 @@ const useStyles = createUseStyles(theme => ({
 const step = 20;
 const tolerance = 50;
 
-const Select = ({ value: current, values, placeholder, focus, stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), onChange = value => { }, ...props }) => {
+export const Select = ({ value: current, values, placeholder, focus, stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), onChange = value => { }, ...props }) => {
     const classes = useStyles();
     const refs = useRef({ input: undefined, list: undefined, timeout: undefined });
     const [limit, setLimit] = useState(step);
@@ -115,5 +115,3 @@ const Select = ({ value: current, values, placeholder, focus, stringlify = value
         </div>}
     </div>;
 };
-
-export default Select;

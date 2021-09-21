@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { createUseStyles } from 'react-jss';
 import { useDrag } from 'react-use-gesture';
 import { useSpring, animated, config } from 'react-spring';
-import Select from './Select.jsx';
+import { Select } from './atoms/Select.jsx';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2 } from 'react-icons/fi';
 import { database, useAsyncEffect } from './storage.js';
 import { useSettings } from './Popup.jsx';
+import { Textarea } from './atoms/Textarea.jsx';
 
 const useStyles = createUseStyles(theme => ({
     base: {
@@ -27,15 +28,6 @@ const useStyles = createUseStyles(theme => ({
         }
     }
 }));
-
-const Textarea = (props) => {
-    const element = useRef();
-    useEffect(() => {
-        element.current.style.height = '0px'; // reset height
-        element.current.style.height = element.current.scrollHeight && `${element.current.scrollHeight}px` || ''; // set scroll height
-    }, [props.value]);
-    return <textarea ref={element} {...props} />
-};
 
 export const Editor = ({ entry, onSubmit, onDuplicate, onDismiss, onDelete }) => {
     const classes = useStyles();
