@@ -8,11 +8,11 @@ import { FiRefreshCw, FiClock, FiX, FiEdit, FiCheckSquare, FiPlusSquare, FiCircl
 import { database, storage, useAsyncEffect } from './storage.js';
 import { themes } from './themes.js';
 import { Editor } from './Editor.jsx';
+import { Task } from './Task.jsx';
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
 
-const setup = { days: 7, hours: [8, 16] };
 const useStyles = createUseStyles(theme => ({ // color codes: https://www.colorsandfonts.com/color-system
     '@font-face': [{
         fontFamily: 'WorkSans',
@@ -110,9 +110,9 @@ const Entry = ({ project, issue, activity, hours, comments, onSelect }) => {
 
 const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
     const classes = useStyles();
-    const [start, end] = setup.hours;
+    const { hours: [start, end] } = useSettings();
     const sum = end - start;
-    const ellapsed = dayjs().format('YYYY-MM-DD') === day ? dayjs().hour() - start : sum;
+    const ellapsed = dayjs().isSame(day, 'day') ? dayjs().hour() - start : sum;
     const hours = useMemo(() => entries.reduce((hours, entry) => hours + entry.hours || 0, 0), [entries]);
     return <>
         <div style={{ display: 'flex' }}>
@@ -127,7 +127,7 @@ const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
                 </div>
             </div>
         </div>
-        {selected && entries?.map(entry => <Entry key={entry.id} {...entry} onSelect={onSelectEntry(entry)} />)}
+        {selected && entries.map(entry => <Entry key={entry.id} {...entry} onSelect={onSelectEntry(entry)} />)}
     </>
 };
 
@@ -165,7 +165,7 @@ const Layout = () => {
         }
         throw req.statusText;
     }
-    const propsTask = ({
+    const propsTaskAdd = ({
         placeholder: 'Add task',
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
@@ -236,8 +236,18 @@ const Layout = () => {
         onDuplicate: (entry) => setEntry(entry),
         onDismiss: () => setEntry()
     });
+    const filteredTasks = useMemo(() => tasks.filter(({ closed_on }) => !closed_on || dayjs(today).isSame(closed_on, 'day')), [tasks, today]);
+    const propsTask = (task) => ({
+        task, key: task.id,
+        onChange: async (props) => {
+            const { id } = task;
+            await database.table('tasks').update(id, props);
+            setTasks(tasks => tasks.map(task => task.id === id ? { ...task, ...props } : task));
+        }
+    });
+    const filteredEntries = useMemo(() => entries.reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {}), [entries]);
     const propsDay = (day) => ({
-        day, key: day, selected: day === today, entries: entries?.filter(entry => entry.spent_on === day) || [],
+        day, key: day, selected: day === today, entries: filteredEntries[day] || [],
         onSelectDay: () => setToday(day),
         onSelectEntry: (entry) => () => setEntry(entry)
     });
@@ -251,15 +261,11 @@ const Layout = () => {
     }, []);
     return <div style={{ width: 460 }}>
         <Editor {...propsEditor(entry)} />
-        <input {...propsTask} />
+        <input {...propsTaskAdd} />
         <button onClick={onRefresh}><FiPlusSquare /></button>
         <button onClick={onRefresh}><FiCheckSquare /></button>
         <button onClick={onRefresh}><FiRefreshCw /></button>
-        {tasks.map(({ id, color, done, value, created_on, updated_on }) => <div key={id} title={`Created ${dayjs().to(created_on, true)} ago\nUpdated ${dayjs().to(updated_on, true)} ago`}>
-            <label style={{ color }}>{done ? <FiCheckCircle onClick={onTaskDone(id, false)} /> : <FiCircle onClick={onTaskDone(id, true)} />}</label>
-            <input style={{ padding: 0, margin: 0, textDecoration: done ? 'line-through' : 'none' }} value={value} />
-            {/* <label style={{ textDecoration: done ? 'line-through' : 'none' }}>{value}</label> */}
-        </div>)}
+        {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {/* <button onClick={() => raiseToast('testing2')}>Task</button> */}
         {/* <button style={{ backgroundColor: '#999' }}>Time</button> */}
         {days.map(day => <Day {...propsDay(day)} />)}
