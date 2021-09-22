@@ -28,7 +28,7 @@ const useStyles = createUseStyles(theme => ({
 const step = 20;
 const tolerance = 50;
 
-export const Select = ({ value: current, values, placeholder, focus, stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), onChange = value => { }, ...props }) => {
+export const Select = ({ value: current, values, placeholder, stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), onChange = value => { }, onMount = refs => { }, ...props }) => {
     const classes = useStyles();
     const refs = useRef({ input: undefined, list: undefined, timeout: undefined });
     const [limit, setLimit] = useState(step);
@@ -99,9 +99,7 @@ export const Select = ({ value: current, values, placeholder, focus, stringlify 
         const element = refs.current.list?.children[search.index];
         element && element.scrollIntoView({ block: 'nearest' });
     }, [search.index]);
-    useEffect(() => { // focus on change
-        focus && refs.current.input.focus();
-    }, [focus]);
+    useEffect(() => onMount(refs), []);
     return <div {...propsBase}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
