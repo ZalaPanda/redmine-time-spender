@@ -33,7 +33,7 @@ export const Task = ({ task: { id, color, value: current, created_on, updated_on
             <FiCheckCircle onClick={() => onChange({ closed_on: undefined })} /> :
             <FiCircle onClick={() => onChange({ closed_on: dayjs().toJSON() })} />}
         </label>
-        <Textarea style={{ textDecoration: closed_on ? 'line-through' : 'none' }}
+        <Textarea readOnly={!!closed_on} style={{ textDecoration: closed_on ? 'line-through' : 'none' }}
             value={value || ''} onChange={(event) => setValue(event.target.value)} onBlur={(event) => onChange({ value: event.target.value })} />
         {/* <label style={{ textDecoration: done ? 'line-through' : 'none' }}>{value}</label> */}
         {/* TODO: use hover! */}

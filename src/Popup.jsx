@@ -32,7 +32,7 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
-        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', theme.background], backgroundColor: theme.font },
+        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', theme.background], backgroundColor: theme.gray150 },
         '::-webkit-scrollbar-corner': { backgroundColor: 'transparent' },
         '::-webkit-resizer': { backgroundColor: 'transparent' },
         '::-webkit-calendar-picker-indicator': { backgroundColor: 'green', color: 'red' },
@@ -112,7 +112,7 @@ const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
     const classes = useStyles();
     const { hours: [start, end] } = useSettings();
     const sum = end - start;
-    const ellapsed = dayjs().isSame(day, 'day') ? dayjs().hour() - start : sum;
+    const ellapsed = useMemo(() => dayjs().isSame(day, 'day') ? Math.min(dayjs().hour(), end) - start : sum, []);
     const hours = useMemo(() => entries.reduce((hours, entry) => hours + entry.hours || 0, 0), [entries]);
     return <>
         <div style={{ display: 'flex' }}>
@@ -139,7 +139,7 @@ const Layout = () => {
     const settings = useSettings();
     useAsyncEffect(async ({ aborted }) => {
         const tasks = await database.table('tasks').reverse().toArray();
-        const entries = await database.table('entries').toArray();
+        const entries = await database.table('entries').reverse().toArray();
         const issues = await database.table('issues').bulkGet([...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))]);
         if (aborted) return;
         setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
@@ -212,7 +212,7 @@ const Layout = () => {
                     if (!req.ok) throw throwRedmineError(req); // 201 Created: time entry was created
                     const { time_entry: update } = await req.json();
                     await database.table('entries').put(update);
-                    setEntries(entries => entries.concat({ ...update, issue }));
+                    setEntries(entries => [{ ...update, issue }, entries]);
                 }
             } catch (error) {
                 setError(error);
@@ -262,8 +262,8 @@ const Layout = () => {
     return <div style={{ width: 460 }}>
         <Editor {...propsEditor(entry)} />
         <input {...propsTaskAdd} />
-        <button onClick={onRefresh}><FiPlusSquare /></button>
-        <button onClick={onRefresh}><FiCheckSquare /></button>
+        <button onClick={() => setEntry({ spent_on: today })}><FiPlusSquare /></button>
+        {/* <button onClick={onRefresh}><FiCheckSquare /></button> */}
         <button onClick={onRefresh}><FiRefreshCw /></button>
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {/* <button onClick={() => raiseToast('testing2')}>Task</button> */}
