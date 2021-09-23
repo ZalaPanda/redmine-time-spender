@@ -18,9 +18,11 @@ API key
 
 Login with username filled: https://redmine.bhu.flextronics.com/login?username=zaladdev
 
-https://www.redmine.org/projects/redmine/wiki/Rest_api
-https://www.redmine.org/projects/redmine/wiki/Rest_Enumerations -> `/enumerations/time_entry_activities.json`
-https://www.redmine.org/projects/redmine/wiki/Rest_Projects -> `/projects.json?limit=100`
+Shortcuts
+---------
+
+API: https://developer.chrome.com/docs/extensions/reference/commands/#basic-command
+Link: chrome://extensions/shortcuts
 
 TODO
 ====

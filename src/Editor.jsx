@@ -40,8 +40,8 @@ export const Editor = ({ entry, onSubmit, onDuplicate, onDismiss, onDelete }) =>
     const bind = useDrag(({ down, movement: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, initial: () => [0, y.get()] });
     useAsyncEffect(async () => {
         refs.current.projects = await database.table('projects').toArray();
-        refs.current.issues = await database.table('issues').reverse().filter(issue => !issue.closed_on).toArray();
-        refs.current.activities = await database.table('activities').toArray();
+        refs.current.issues = await database.table('issues').reverse().toArray();
+        refs.current.activities = await database.table('activities').orderBy('name').toArray();
     }, undefined, []);
     useAsyncEffect(async () => {
         await Promise.all(setSpring.start({ y: -300 }));
@@ -72,11 +72,11 @@ export const Editor = ({ entry, onSubmit, onDuplicate, onDismiss, onDelete }) =>
                 <label title={'Issue'}><FiHash /></label>
                 <Select placeholder={'Issue'}
                     value={issue} values={issues}
-                    render={(item, short) => short ? <div>#{item.id} {item.subject}</div> : <div title={item.description}>#{item.id} {item.project.name}<br />{item.subject}</div>}
+                    render={(item, short) => short ? (item.closed_on ? <strike>#{item.id} {item.subject}</strike> : <div>#{item.id} {item.subject}</div>) : <div title={item.description}>#{item.id} {item.project.name}<br />{item.subject}</div>}
                     stringlify={item => item.id}
                     linkify={item => `${url}/issues/${item.id}`}
                     filter={filter => item => filter.test(item.subject) || filter.test(item.id)}
-                    onChange={issue => setEntry(entry => ({ ...entry, issue, project: issue?.project || entry.project }))}
+                    onChange={issue => setEntry(entry => ({ ...entry, issue, project: issue?.project || entry?.project }))}
                     onMount={innerRefs => refs.current.issue = innerRefs.current.input} />
             </div>
             <div>

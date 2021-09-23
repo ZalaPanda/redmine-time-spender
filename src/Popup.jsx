@@ -1,5 +1,5 @@
-import React, { useContext, useState, useEffect, useMemo } from 'react';
-import { Globals } from 'react-spring';
+import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
+import { Globals, useSpring, animated, config } from 'react-spring';
 import { ThemeProvider, createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
@@ -28,7 +28,11 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         'svg': { margin: [0, 4], verticalAlign: 'middle', strokeWidth: 2.5 },
         'html': { scrollBehavior: 'smooth', backgroundColor: theme.background, color: theme.font },
         'input, textarea, button': { display: 'inline-block', border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none', backgroundColor: 'transparent', color: theme.font, '&:focus': { outline: 'none' } }, // outline: [1, 'solid', theme.gray700]
-        'button': { textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4, '&:hover, &:focus': { backgroundColor: theme.gray200 } },
+        'button': {
+            textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4,
+            '&:hover, &:focus': { backgroundColor: theme.gray200 },
+            '&:disabled': { color: theme.gray500, backgroundColor: theme.gray50, cursor: 'auto' }
+        },
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
@@ -91,33 +95,46 @@ const Timer = ({ start, times }) => {
     </>;
 };
 
-const Entry = ({ project, issue, activity, hours, comments, onSelect }) => {
+const Entry = ({ project, issue, activity, hours, comments, disabled, onSelect }) => {
     const classes = useStyles();
-    return <div style={{ margin: 2, border: '1px solid #333', padding: 8 }}>
+    const { url } = useSettings();
+    return <div style={{ position: 'relative', margin: 2, border: '1px solid #333', padding: 8 }}>
         <div className={classes.hours}>
             <svg height="50" width="50">
                 <circle cx="25" cy="25" r="20.5" stroke="#263137" strokeWidth="6" fill="none" /> {/* TODO: theme.gray50 */}
                 <circle cx="25" cy="25" r="20.5" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" /> {/* TODO: theme.green500 */}
             </svg>
             <b style={{ position: 'absolute' }}>{hours}h</b>
-            <button onClick={onSelect}><FiEdit /></button>
+            <button disabled={disabled} onClick={onSelect}><FiEdit /></button>
         </div>
         <label style={{ backgroundColor: '#2E3C43', borderRadius: 4, padding: '0px 4px', float: 'right' }}>{activity.name}</label>
-        <label>{project.name}{issue && <> <a href={'#'}>#{issue.id}</a> {issue.subject}</>}</label>
+        <label>{project.name}{issue && <> <a tabIndex="-1" href={`${url}/projects/${issue.id}`}>#{issue.id}</a> {issue.subject}</>}</label>
         <div style={{ color: '#888' }}>{comments}</div>
     </div>
 };
 
 const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
     const classes = useStyles();
+    const refs = useRef({ list: undefined });
+
     const { hours: [start, end] } = useSettings();
     const sum = end - start;
-    const ellapsed = useMemo(() => dayjs().isSame(day, 'day') ? Math.min(dayjs().hour(), end) - start : sum, []);
-    const hours = useMemo(() => entries.reduce((hours, entry) => hours + entry.hours || 0, 0), [entries]);
+    const reported = useMemo(() => entries.reduce((hours, entry) => hours + entry.hours || 0, 0), [entries]);
+    const ellapsed = useMemo(() => {
+        const now = dayjs();
+        if (!now.isSame(day, 'day')) return sum;
+        const hours = now.hour() + now.minute() / 60;
+        return Math.min(hours, end) - Math.min(hours, start);
+    }, []);
+    const [{ height }, setSpring] = useSpring(() => ({ height: 0, immediate: true }));
+    useAsyncEffect(async () => {
+        const height = selected ? refs.current.list.scrollHeight : 0;
+        await Promise.all(setSpring.start({ height }));
+    }, undefined, [entries, selected]);
     return <>
         <div style={{ display: 'flex' }}>
             <label style={{ width: 100 }} onClick={onSelectDay}>{day}</label>
-            <b style={{ width: 50 }}>{hours}h</b>
+            <b style={{ width: 50 }}>{reported}h</b>
             <div style={{ flexGrow: 1 }}>
                 <div className={classes.bar}>
                     <div><div className={classes.ellapsed} style={{ width: `${ellapsed / sum * 100}%` }}></div></div>
@@ -127,36 +144,41 @@ const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
                 </div>
             </div>
         </div>
-        {selected && entries.map(entry => <Entry key={entry.id} {...entry} onSelect={onSelectEntry(entry)} />)}
+        <animated.div ref={ref => refs.current.list = ref} style={{ height, overflow: 'hidden' }}>
+            {entries.map(entry => <Entry key={entry.id} {...entry} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
+        </animated.div>
     </>
 };
 
 const Layout = () => {
     const classes = useStyles();
+    const refs = useRef({ entry: undefined, task: undefined, refresh: undefined });
     const [tasks, setTasks] = useState([]);
     const [error, setError] = useState();
     const [entries, setEntries] = useState([]);
     const settings = useSettings();
-    useAsyncEffect(async ({ aborted }) => {
+
+    const days = [...Array(settings.days)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
+    const [today, setToday] = useState(days[0]);
+    const [entry, setEntry] = useState();
+
+    const reload = async ({ aborted }) => {
         const tasks = await database.table('tasks').reverse().toArray();
         const entries = await database.table('entries').reverse().toArray();
         const issues = await database.table('issues').bulkGet([...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))]);
         if (aborted) return;
         setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
         setTasks(tasks); // NOTE: batched updates in React 19
-    }, undefined, []);
-
-    const days = [...Array(settings.days)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
-    const [today, setToday] = useState(days[0]);
-    const [entry, setEntry] = useState();
-
+    };
+    useAsyncEffect(reload, undefined, []);
     const onRefresh = () => {
-        chrome.runtime.sendMessage({ type: 'refresh' }, (response) => {
-            console.log(response);
+        refs.current.refresh.disabled = true;
+        chrome.runtime.sendMessage({ type: 'refresh' }, (results) => {
+            console.log({ results });
+            results.find(res => res) && reload({});
+            refs.current.refresh.disabled = false;
+            // TODO> show notification
         });
-        // chrome.runtime.sendMessage({ type: 'test' }, (response) => {
-        //     console.log(response);
-        // });
     };
     const throwRedmineError = async (req) => {
         if (req.status === 422) { // 422 Unprocessable Entity
@@ -170,7 +192,7 @@ const Layout = () => {
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
             if (which === 13) {
-                const props = { value, done: false, color: 'green', created_on: dayjs().toJSON(), updated_on: dayjs().toJSON() };
+                const props = { value, created_on: dayjs().toJSON() };
                 const id = await database.table('tasks').add(props);
                 const task = { id, ...props };
                 setTasks(tasks => [task, ...tasks]);
@@ -204,10 +226,10 @@ const Layout = () => {
                     setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, issue } : entry));
                 } else { // create
                     const req = await fetch(`${url}/time_entries.json`, { headers: { 'Content-Type': 'application/json', 'X-Redmine-API-Key': key }, method: 'POST', body });
-                    if (!req.ok) throw throwRedmineError(req); // 201 Created: time entry was created
+                    if (!req.ok) await throwRedmineError(req); // 201 Created: time entry was created
                     const { time_entry: update } = await req.json();
                     await database.table('entries').put(update);
-                    setEntries(entries => [{ ...update, issue }, entries]);
+                    setEntries(entries => [{ ...update, issue }, ...entries]);
                 }
             } catch (error) {
                 setError(error);
@@ -258,10 +280,12 @@ const Layout = () => {
     const filteredEntries = useMemo(() => entries.reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {}), [entries]);
     const propsDay = (day) => ({
         day, key: day, selected: day === today, entries: filteredEntries[day] || [],
-        onSelectDay: () => setToday(day),
+        onSelectDay: () => setToday(day === today ? undefined : day),
         onSelectEntry: (entry) => () => setEntry(entry)
     });
     useEffect(() => {
+        refs.current.entry.focus(); // focus on add entry button
+
         const callback = (message, sender) => {
             if (sender.id !== chrome.runtime.id) return;
             console.log({ message });
@@ -269,11 +293,13 @@ const Layout = () => {
         chrome.runtime.onMessage.addListener(callback);
         return () => chrome.runtime.onMessage.removeListener(callback);
     }, []);
-    return <div style={{ width: 460 }}>
+    return <div style={{ width: 460, minHeight: 300 }}>
         <Editor {...propsEditor(entry)} />
-        <button onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
-        <input {...propsTaskAdd} />
-        <button onClick={onRefresh}><FiRefreshCw /></button>
+        <div style={{ display: 'flex' }}>
+            <button ref={ref => refs.current.entry = ref} onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
+            <input ref={ref => refs.current.task = ref} style={{ flexGrow: 1 }} {...propsTaskAdd} />
+            <button ref={ref => refs.current.refresh = ref} onClick={onRefresh}><FiRefreshCw /></button>
+        </div>
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {/* <button onClick={() => raiseToast('testing2')}>Task</button> */}
         {/* <button style={{ backgroundColor: '#999' }}>Time</button> */}

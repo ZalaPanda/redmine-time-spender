@@ -4,7 +4,7 @@ export const database = new Dexie('redmine-cache');
 database.version(1).stores({
     projects: '++, &id, updated_on',
     issues: '&id, updated_on',
-    activities: '&id',
+    activities: '&id, name',
     entries: '&id, spent_on, updated_on', // order: updated_on <desc>
     tasks: '++id',
     logs: '++'
