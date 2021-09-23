@@ -4,7 +4,7 @@ import { ThemeProvider, createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { FiRefreshCw, FiClock, FiX, FiEdit, FiCheckSquare, FiPlusSquare, FiCircle, FiCheckCircle } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiX, FiEdit, FiPlusSquare } from 'react-icons/fi';
 import { database, storage, useAsyncEffect } from './storage.js';
 import { themes } from './themes.js';
 import { Editor } from './Editor.jsx';
@@ -28,7 +28,7 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         'svg': { margin: [0, 4], verticalAlign: 'middle', strokeWidth: 2.5 },
         'html': { scrollBehavior: 'smooth', backgroundColor: theme.background, color: theme.font },
         'input, textarea, button': { display: 'inline-block', border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none', backgroundColor: 'transparent', color: theme.font, '&:focus': { outline: 'none' } }, // outline: [1, 'solid', theme.gray700]
-        'button': { textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', '&:hover, &:focus': { backgroundColor: theme.gray200 } },
+        'button': { textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4, '&:hover, &:focus': { backgroundColor: theme.gray200 } },
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
@@ -178,11 +178,6 @@ const Layout = () => {
             }
         }
     });
-    const onTaskDone = (id, done) => async () => { // TODO: create Task.jsx
-        const props = { done, updated_on: dayjs().toJSON() };
-        await database.table('tasks').update(id, props);
-        setTasks(tasks => tasks.map(task => task.id === id ? { ...task, ...props } : task));
-    };
     const propsEditor = (entry) => ({
         entry,
         onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
@@ -240,9 +235,24 @@ const Layout = () => {
     const propsTask = (task) => ({
         task, key: task.id,
         onChange: async (props) => {
-            const { id } = task;
-            await database.table('tasks').update(id, props);
-            setTasks(tasks => tasks.map(task => task.id === id ? { ...task, ...props } : task));
+            try {
+                const { id } = task;
+                await database.table('tasks').update(id, props);
+                setTasks(tasks => tasks.map(task => task.id === id ? { ...task, ...props } : task));
+            } catch (error) {
+                setError(error);
+            }
+        },
+        onDelete: async () => {
+            try {
+                const { id } = task;
+                await database.table('tasks').delete(id);
+                setTasks(tasks => tasks.filter(task => task.id !== id));
+            } catch (error) {
+                setError(error);
+            } finally {
+                setEntry();
+            }
         }
     });
     const filteredEntries = useMemo(() => entries.reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {}), [entries]);
@@ -261,9 +271,8 @@ const Layout = () => {
     }, []);
     return <div style={{ width: 460 }}>
         <Editor {...propsEditor(entry)} />
+        <button onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
         <input {...propsTaskAdd} />
-        <button onClick={() => setEntry({ spent_on: today })}><FiPlusSquare /></button>
-        {/* <button onClick={onRefresh}><FiCheckSquare /></button> */}
         <button onClick={onRefresh}><FiRefreshCw /></button>
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {/* <button onClick={() => raiseToast('testing2')}>Task</button> */}
