@@ -26,8 +26,12 @@ Link: chrome://extensions/shortcuts
 
 TODO
 ====
-* fix background refresh
-* reload on force refresh
-* check background script module support
-* task features: color/stopper/notes?/update/delete
-* animation on day select
+* [x] fix background refresh
+* [x] reload on force refresh
+* [ ] check background script module support
+* [x] task features done: color/update/delete
+* [ ] task features left: stopper?/notes?
+* [x] animation on day select
+* [ ] save new entry on popup close and continue next time
+* [ ] options page
+* [ ] favorite projects/issues/activities
