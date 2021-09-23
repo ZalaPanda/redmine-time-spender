@@ -1,0 +1,6 @@
+This favicon was generated using the following font:
+
+- Font Title: Viga
+- Font Author: Copyright (c) 2011 Fontstage (info@fontstage.com), with Reserved Font Name "Viga"
+- Font Source: http://fonts.gstatic.com/s/viga/v9/xMQbuFFdSaiX_QIjD4e2OX8.ttf
+- Font License: SIL Open Font License, 1.1 (http://scripts.sil.org/OFL)

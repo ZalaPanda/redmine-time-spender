@@ -1,0 +1,41 @@
+{
+    "manifest_version": 3,
+    "name": "Redmine Time Spender",
+    "short_name": "RMTS",
+    "description": "Time spent management in Redmine.",
+    "version": "0.0.1",
+    "background": {
+        "service_worker": "background.js"
+    },
+    "options_page": "options.html",
+    "action": {
+        "default_title": "Redmine Time Spender",
+        "default_icon": "img/icon-50.png",
+        "default_popup": "popup.html"
+    },
+    "icons": {
+        "16": "img/icon-16.png",
+        "48": "img/icon-48.png",
+        "128": "img/icon-128.png"
+    },
+    "commands": {
+        "_execute_action": {
+            "suggested_key": {
+                "default": "Ctrl+Comma",
+                "mac": "Command+Comma"
+            }
+        }
+    },
+    "permissions": [
+        "alarms",
+        "tabs",
+        "storage",
+        "webRequest",
+        "notifications"
+    ],
+    "host_permissions": [
+        "https://redmine.bhu.flextronics.com/",
+        "https://zalnt238.europe.ad.flextronics.com/",
+        "https://login.microsoftonline.com/"
+    ]
+}
