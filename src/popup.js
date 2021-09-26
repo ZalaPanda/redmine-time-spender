@@ -1,5 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import Popup from './Popup.jsx';
+import Root from './Root.jsx';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
-ReactDOM.render(React.createElement(Popup), document.getElementById('root'));
+dayjs.extend(relativeTime);
+
+ReactDOM.render(React.createElement(Root), document.getElementById('root'));

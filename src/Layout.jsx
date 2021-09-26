@@ -1,17 +1,12 @@
-import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
-import { Globals, useSpring, animated, config } from 'react-spring';
-import { ThemeProvider, createUseStyles } from 'react-jss';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import dayjs from 'dayjs';
-import duration from 'dayjs/plugin/duration';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import { FiRefreshCw, FiClock, FiX, FiEdit, FiPlusSquare } from 'react-icons/fi';
-import { database, storage, useAsyncEffect } from './storage.js';
-import { themes } from './themes.js';
+import { createUseStyles } from 'react-jss';
+import { FiRefreshCw, FiClock, FiSettings } from 'react-icons/fi';
+import { database, useAsyncEffect, useSettings } from './storage.js';
 import { Editor } from './Editor.jsx';
+import { Day } from './Day.jsx';
 import { Task } from './Task.jsx';
-
-dayjs.extend(duration);
-dayjs.extend(relativeTime);
+import { Config } from './Config.jsx';
 
 const useStyles = createUseStyles(theme => ({ // color codes: https://www.colorsandfonts.com/color-system
     '@font-face': [{
@@ -27,9 +22,14 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         'a': { color: '#3b82f6', '&:visited': { color: '#3b82f6' } },
         'svg': { margin: [0, 4], verticalAlign: 'middle', strokeWidth: 2.5 },
         'html': { scrollBehavior: 'smooth', backgroundColor: theme.background, color: theme.font },
-        'input, textarea, button': { display: 'inline-block', border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none', backgroundColor: 'transparent', color: theme.font, '&:focus': { outline: 'none' } }, // outline: [1, 'solid', theme.gray700]
+        'body': { width: 460, minHeight: 300, margin: 10 },
+        'input, textarea, button': {
+            display: 'inline-block', backgroundColor: 'transparent', color: theme.font,
+            border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
+            '&:focus': { outline: 'none' } // outline: [1, 'solid', theme.gray700]
+        },
         'button': {
-            textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4,
+            display: 'inline-block', textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4,
             '&:hover, &:focus': { backgroundColor: theme.gray200 },
             '&:disabled': { color: theme.gray500, backgroundColor: theme.gray50, cursor: 'auto' }
         },
@@ -45,114 +45,12 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         // [date input] remove button
         '::-webkit-calendar-picker-indicator': { background: 'none' }
     },
-    bar: {
-        position: 'relative', height: 12,
-        '&>div': { position: 'absolute', display: 'flex', width: '100%', height: '100%' }
-    },
-    ellapsed: { backgroundColor: 'red', margin: [4, 0], boxSizing: 'border-box' },
-    spent: { backgroundColor: 'green', border: [1, 'solid', '#333'], boxSizing: 'border-box' },
-    row: {
-        display: 'flex', flexDirection: 'row', flexWrap: 'wrap',
-        '&>*': { flexShrink: 0, maxWidth: '100%', marginRight: '1em', marginBottom: 4, '&:hover': { backgroundColor: 'red' } }
-    },
-    focus: {
-        backgroundColor: 'green',
-        '&:focus-within': { backgroundColor: theme.gray50 }
-    },
-    hours: {
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 50, height: 50, float: 'left',
-        '&>b, &>svg, &>button': { position: 'absolute', padding: 0, margin: 0 },
-        '&>button': {
-            width: 0, height: 36, border: 'none', borderRadius: 18, overflow: 'hidden',
-            backgroundColor: theme.gray200, color: theme.font,
-            '&:focus': { width: 36 },
-            '&>svg': { fontSize: '1.2rem' },
-        },
-        '&:hover>button': { width: 36 }
-    }
+    base: { display: 'flex', '&>input': { flexGrow: 1 } }
 }));
 
-const Timer = ({ start, times }) => {
-    const display = useMemo(() => times.map(([start, duration]) => [
-        dayjs(start).format(),
-        dayjs(start).add(duration).format(),
-        duration / 1000 / 60 / 60
-    ]), [times]);
-    const durations = useMemo(() => times.reduce((durations, [, duration]) => durations + duration, 0), [times]);
-    const getDuration = () => start && dayjs().diff(start) || 0;
-    const [duration, setDuration] = useState(getDuration());
-    useEffect(() => {
-        if (!start) return;
-        const interval = setInterval(() => {
-            setDuration(getDuration());
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [start]);
-    return <>
-        <FiClock title={dayjs(start).format('HH:mm')} />{((durations + duration) / 1000 / 60 / 60).toFixed(2)}h
-        {/* [{ellapsed.toFixed(2)}] {diff * 60} */}
-        {display.map(([start, end, duration]) => <div key={start}>{start} - {end} - {duration.toFixed(2)}h <FiX /></div>)}
-    </>;
-};
-
-const Entry = ({ project, issue, activity, hours, comments, disabled, onSelect }) => {
+export const Layout = () => {
     const classes = useStyles();
-    const { url } = useSettings();
-    return <div style={{ position: 'relative', margin: 2, border: '1px solid #333', padding: 8 }}>
-        <div className={classes.hours}>
-            <svg height="50" width="50">
-                <circle cx="25" cy="25" r="20.5" stroke="#263137" strokeWidth="6" fill="none" /> {/* TODO: theme.gray50 */}
-                <circle cx="25" cy="25" r="20.5" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" /> {/* TODO: theme.green500 */}
-            </svg>
-            <b style={{ position: 'absolute' }}>{hours}h</b>
-            <button disabled={disabled} onClick={onSelect}><FiEdit /></button>
-        </div>
-        <label style={{ backgroundColor: '#2E3C43', borderRadius: 4, padding: '0px 4px', float: 'right' }}>{activity.name}</label>
-        <label>{project.name}{issue && <> <a tabIndex="-1" href={`${url}/projects/${issue.id}`}>#{issue.id}</a> {issue.subject}</>}</label>
-        <div style={{ color: '#888' }}>{comments}</div>
-    </div>
-};
-
-const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
-    const classes = useStyles();
-    const refs = useRef({ list: undefined });
-
-    const { hours: [start, end] } = useSettings();
-    const sum = end - start;
-    const reported = useMemo(() => entries.reduce((hours, entry) => hours + entry.hours || 0, 0), [entries]);
-    const ellapsed = useMemo(() => {
-        const now = dayjs();
-        if (!now.isSame(day, 'day')) return sum;
-        const hours = now.hour() + now.minute() / 60;
-        return Math.min(hours, end) - Math.min(hours, start);
-    }, []);
-    const [{ height }, setSpring] = useSpring(() => ({ height: 0, immediate: true }));
-    useAsyncEffect(async () => {
-        const height = selected ? refs.current.list.scrollHeight : 0;
-        await Promise.all(setSpring.start({ height }));
-    }, undefined, [entries, selected]);
-    return <>
-        <div style={{ display: 'flex' }}>
-            <label style={{ width: 100 }} onClick={onSelectDay}>{day}</label>
-            <b style={{ width: 50 }}>{reported}h</b>
-            <div style={{ flexGrow: 1 }}>
-                <div className={classes.bar}>
-                    <div><div className={classes.ellapsed} style={{ width: `${ellapsed / sum * 100}%` }}></div></div>
-                    <div>{entries && entries.map(({ id, hours, activity }) =>
-                        <div key={id} className={classes.spent} title={`${hours}h ${activity.name || '?'}`} style={{ width: `${hours / sum * 100}%` }}></div>)}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <animated.div ref={ref => refs.current.list = ref} style={{ height, overflow: 'hidden' }}>
-            {entries.map(entry => <Entry key={entry.id} {...entry} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
-        </animated.div>
-    </>
-};
-
-const Layout = () => {
-    const classes = useStyles();
-    const refs = useRef({ entry: undefined, task: undefined, refresh: undefined });
+    const refs = useRef({ entry: undefined, task: undefined, refresh: undefined, config: undefined });
     const [tasks, setTasks] = useState([]);
     const [error, setError] = useState();
     const [entries, setEntries] = useState([]);
@@ -160,7 +58,7 @@ const Layout = () => {
 
     const days = [...Array(settings.days)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
     const [today, setToday] = useState(days[0]);
-    const [entry, setEntry] = useState();
+    const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
 
     const reload = async ({ aborted }) => {
         const tasks = await database.table('tasks').reverse().toArray();
@@ -171,15 +69,19 @@ const Layout = () => {
         setTasks(tasks); // NOTE: batched updates in React 19
     };
     useAsyncEffect(reload, undefined, []);
-    const onRefresh = () => {
-        refs.current.refresh.disabled = true;
+    const onRefresh = (event) => {
+        event.target.disabled = true;
+        // refs.current.refresh.disabled = true;
         chrome.runtime.sendMessage({ type: 'refresh' }, (results) => {
-            console.log({ results });
+            // console.log({ results });
+            event.target.disabled = true;
             results.find(res => res) && reload({});
-            refs.current.refresh.disabled = false;
+            // refs.current.refresh.disabled = false;
             // TODO> show notification
         });
     };
+    const [config, setConfig] = useState(false);
+    const onConfig = () => setConfig(true);
     const throwRedmineError = async (req) => {
         if (req.status === 422) { // 422 Unprocessable Entity
             const { errors } = await req.json(); // API: https://www.redmine.org/projects/redmine/wiki/Rest_api#Validation-errors
@@ -187,7 +89,7 @@ const Layout = () => {
         }
         throw req.statusText;
     }
-    const propsTaskAdd = ({
+    const propsAddTask = ({
         placeholder: 'Add task',
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
@@ -200,7 +102,7 @@ const Layout = () => {
             }
         }
     });
-    const propsEditor = (entry) => ({
+    const propsEditor = ({
         entry,
         onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
             try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry
@@ -283,48 +185,18 @@ const Layout = () => {
         onSelectDay: () => setToday(day === today ? undefined : day),
         onSelectEntry: (entry) => () => setEntry(entry)
     });
-    useEffect(() => {
-        refs.current.entry.focus(); // focus on add entry button
-
-        const callback = (message, sender) => {
-            if (sender.id !== chrome.runtime.id) return;
-            console.log({ message });
-        };
-        chrome.runtime.onMessage.addListener(callback);
-        return () => chrome.runtime.onMessage.removeListener(callback);
-    }, []);
-    return <div style={{ width: 460, minHeight: 300 }}>
-        <Editor {...propsEditor(entry)} />
-        <div style={{ display: 'flex' }}>
+    useEffect(() => refs.current.entry.focus(), []); // focus on add entry button
+    return <>
+        <Editor {...propsEditor} />
+        {config && <Config />}
+        <div className={classes.base}>
             <button ref={ref => refs.current.entry = ref} onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
-            <input ref={ref => refs.current.task = ref} style={{ flexGrow: 1 }} {...propsTaskAdd} />
+            <input ref={ref => refs.current.task = ref} {...propsAddTask} />
             <button ref={ref => refs.current.refresh = ref} onClick={onRefresh}><FiRefreshCw /></button>
+            <button ref={ref => refs.current.config = ref} onClick={onConfig}><FiSettings /></button>
         </div>
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
-        {/* <button onClick={() => raiseToast('testing2')}>Task</button> */}
-        {/* <button style={{ backgroundColor: '#999' }}>Time</button> */}
         {days.map(day => <Day {...propsDay(day)} />)}
         {error && <pre>{error.toString()}</pre>}
-    </div>;
+    </>;
 };
-
-const SettingsContext = React.createContext();
-const SettingsProvider = SettingsContext.Provider;
-export const useSettings = () => useContext(SettingsContext);
-
-const Popup = () => {
-    const [settings, setSettings] = useState();
-    const theme = themes[settings?.theme] || themes['dark'];
-    useAsyncEffect(async ({ aborted }) => {
-        const settings = await storage.get();
-        if (aborted) return;
-        setSettings(settings);
-        const { skipAnimation } = settings;
-        skipAnimation && Globals.assign({ skipAnimation }); // turn off spring animations
-    }, undefined, []);
-    return settings && <SettingsProvider value={settings}>
-        <ThemeProvider theme={theme}><Layout /></ThemeProvider>
-    </SettingsProvider> || null;
-};
-
-export default Popup;

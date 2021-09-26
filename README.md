@@ -24,6 +24,11 @@ Shortcuts
 API: https://developer.chrome.com/docs/extensions/reference/commands/#basic-command
 Link: chrome://extensions/shortcuts
 
+Color shades generators
+-----------------------
+https://mdigi.tools/color-shades/#b84058
+https://maketintsandshades.com/#b84058
+
 TODO
 ====
 * [x] fix background refresh
