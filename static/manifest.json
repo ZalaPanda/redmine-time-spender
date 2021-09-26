@@ -7,7 +7,7 @@
     "background": {
         "service_worker": "background.js"
     },
-    "options_page": "options.html",
+    "options_page": "popup.html",
     "action": {
         "default_title": "Redmine Time Spender",
         "default_icon": "img/icon-50.png",
