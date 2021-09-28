@@ -18,7 +18,7 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         src: 'url("font/work-sans-v11-latin-700.woff2") format("woff2")',
     }],
     '@global': {
-        '*': { fontSize: '1rem', lineHeight: 1.625, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
+        '*': { fontSize: '1rem', lineHeight: theme.spacing, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
         'a': { color: '#3b82f6', '&:visited': { color: '#3b82f6' } },
         'svg': { margin: [0, 4], verticalAlign: 'middle', strokeWidth: 2.5 },
         'html': { scrollBehavior: 'smooth', backgroundColor: theme.background, color: theme.font },
@@ -70,13 +70,13 @@ export const Layout = () => {
     };
     useAsyncEffect(reload, undefined, []);
     const onRefresh = (event) => {
-        event.target.disabled = true;
-        // refs.current.refresh.disabled = true;
+        // event.target.disabled = true;
+        refs.current.refresh.disabled = true;
         chrome.runtime.sendMessage({ type: 'refresh' }, (results) => {
             // console.log({ results });
-            event.target.disabled = true;
+            // event.target.disabled = true;
             results.find(res => res) && reload({});
-            // refs.current.refresh.disabled = false;
+            refs.current.refresh.disabled = false;
             // TODO> show notification
         });
     };
@@ -133,10 +133,11 @@ export const Layout = () => {
                     await database.table('entries').put(update);
                     setEntries(entries => [{ ...update, issue }, ...entries]);
                 }
+                refs.current.entry.focus();
             } catch (error) {
                 setError(error);
             } finally {
-                setEntry();
+                // setEntry();
             }
         },
         onDelete: async ({ id }) => {
@@ -146,15 +147,19 @@ export const Layout = () => {
                 if (!req.ok) await throwRedmineError(req);
                 await database.table('entries').delete(id);
                 setEntries(entries => entries.filter(entry => entry.id !== id));
+                refs.current.entry.focus();
             } catch (error) {
                 setError(error);
             } finally {
-                setEntry();
+                // setEntry();
             }
         },
         onDuplicate: (entry) => setEntry(entry),
-        onDismiss: () => setEntry()
+        onDismiss: () => setEntry() || refs.current.entry.focus()
     });
+    const propsConfig = {
+        onDismiss: () => setConfig(false)
+    };
     const filteredTasks = useMemo(() => tasks.filter(({ closed_on }) => !closed_on || dayjs(today).isSame(closed_on, 'day')), [tasks, today]);
     const propsTask = (task) => ({
         task, key: task.id,
@@ -188,7 +193,7 @@ export const Layout = () => {
     useEffect(() => refs.current.entry.focus(), []); // focus on add entry button
     return <>
         <Editor {...propsEditor} />
-        {config && <Config />}
+        {config && <Config {...propsConfig} />}
         <div className={classes.base}>
             <button ref={ref => refs.current.entry = ref} onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
             <input ref={ref => refs.current.task = ref} {...propsAddTask} />

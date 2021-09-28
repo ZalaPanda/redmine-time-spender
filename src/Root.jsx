@@ -7,13 +7,20 @@ import { Layout } from './Layout.jsx';
 
 const Root = () => {
     const [settings, setSettings] = useState();
-    const theme = themes[settings?.theme] || themes['dark'];
+    const theme = {
+        ...themes[settings?.theme] || themes['dark'],
+        spacing: settings?.spacing || 1.6
+    };
     useAsyncEffect(async ({ aborted }) => {
-        const settings = await storage.get();
+        const refresh = async () => {
+            const settings = await storage.get();
+            const { skipAnimation } = settings;
+            Globals.assign({ skipAnimation }); // spring animations
+            setSettings(settings);
+        };
         if (aborted) return;
-        setSettings(settings);
-        const { skipAnimation } = settings;
-        skipAnimation && Globals.assign({ skipAnimation }); // turn off spring animations
+        chrome.storage.local.onChanged.addListener(refresh); // refresh on settings change
+        refresh();
     }, undefined, []);
     return settings && <SettingsProvider value={settings}>
         <ThemeProvider theme={theme}><Layout /></ThemeProvider>

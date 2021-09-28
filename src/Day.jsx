@@ -48,14 +48,14 @@ const Entry = ({ project, issue, activity, hours, comments, disabled, onSelect }
     return <div className={classes.entry}>
         <div className={classes.hours}>
             <svg height="50" width="50">
-                <circle cx="25" cy="25" r="20.5" stroke="#263137" strokeWidth="6" fill="none" /> {/* TODO: theme.gray50 */}
+                <circle cx="25" cy="25" r="20" stroke="#263137" strokeWidth="6" fill="none" /> {/* TODO: theme.gray50 */}
                 <circle cx="25" cy="25" r="20.5" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" /> {/* TODO: theme.green500 */}
             </svg>
             <b>{hours}h</b>
             <button disabled={disabled} onClick={onSelect}><FiEdit /></button>
         </div>
         <label className={classes.activity}>{activity.name}</label>
-        <label>{project.name}{issue && <> <a tabIndex="-1" href={`${url}/projects/${issue.id}`}>#{issue.id}</a> {issue.subject}</>}</label>
+        <label>{project.name}{issue && <> <a tabIndex="-1" href={`${url}/projects/${issue.id}`} target={'_blank'}>#{issue.id}</a> {issue.subject}</>}</label>
         <div className={classes.comments}>{comments}</div>
     </div>
 };

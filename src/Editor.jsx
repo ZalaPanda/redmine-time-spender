@@ -88,13 +88,18 @@ export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete
         title: 'Delete', onClick: _ => onDelete({ id })
     }
 
-    useAsyncEffect(async () => { // load projects/issues/activities after load
-        refs.current.projects = await database.table('projects').toArray();
-        refs.current.issues = await database.table('issues').reverse().toArray();
-        refs.current.activities = await database.table('activities').orderBy('name').toArray();
+    useAsyncEffect(async ({ aborted }) => { // load projects/issues/activities after load
+        const projects = await database.table('projects').toArray();
+        const issues = await database.table('issues').reverse().toArray();
+        const activities = await database.table('activities').orderBy('name').toArray();
+        if (aborted) return;
+        refs.current.projects = projects;
+        refs.current.issues = issues;
+        refs.current.activities = activities;
     }, undefined, []);
-    useAsyncEffect(async () => { // animation and autofocus on entry change
+    useAsyncEffect(async ({ aborted }) => { // animation and autofocus on entry change
         await Promise.all(setSpring.start({ y: -400 }));
+        if (aborted) return;
         setEntry(init);
         if (!init) return;
         refs.current.issue.focus();
