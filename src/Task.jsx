@@ -19,10 +19,11 @@ export const Task = ({ task: { color, value: current, created_on, updated_on, cl
     const classes = useStyles();
 
     const nextColor = useMemo(() => colors[colors.indexOf(color) + 1], [color]);
-    const title = [
-        created_on && `Created ${dayjs().to(created_on, true)} ago`,
-        updated_on && `Updated ${dayjs().to(updated_on, true)} ago`,
-        closed_on && `Closed ${dayjs().to(closed_on, true)} ago`].filter(row => row).join('\n');
+    const title = useMemo(() => [
+        created_on && ['Created', dayjs(created_on)],
+        updated_on && ['Updated', dayjs(updated_on)],
+        closed_on && ['Closed', dayjs(closed_on)]
+    ].filter(on => on).map(([text, date]) => `${text} ${date.fromNow()} at ${date.format('HH:mm')}`).join('\n'), [created_on, updated_on, closed_on]);
 
     const [value, setValue] = useState(current);
 
