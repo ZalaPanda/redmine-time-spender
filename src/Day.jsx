@@ -20,7 +20,7 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
             width: 0, height: 36, border: 'none', borderRadius: 18, overflow: 'hidden',
             backgroundColor: theme.gray200, color: theme.font,
             '&:focus': { width: 36 },
-            '&>svg': { fontSize: '1.2rem' },
+            '&>svg': { fontSize: 20 },
         },
         '&:hover>button': { width: 36 }
     },

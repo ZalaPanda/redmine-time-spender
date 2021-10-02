@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { createUseStyles } from 'react-jss';
 import { FiLock, FiServer, FiX } from 'react-icons/fi';
-import { database, storage, useAsyncEffect, useSettings } from './storage.js';
+import { database, storage, useAsyncEffect, useRaise, useSettings } from './storage.js';
 import { useSpring, animated, config } from 'react-spring';
 import { Checkbox } from './atoms/Checkbox.jsx';
 
@@ -13,15 +13,20 @@ const useStyles = createUseStyles(theme => ({
             '&>label': { minWidth: 80 },
             '&>input': { flexGrow: 1, flexShrink: 1, minWidth: 20 }
         },
+        '&>div:focus-within': {
+            '&>label': { color: theme.gray850 }, // NOK
+        },
         '&>button': { backgroundColor: theme.gray50 },
         '&>hr': { borderColor: theme.gray50 }
     }
 }));
 
-export const Config = ({ onDismiss }) => {
+export const Config = ({ onRefresh, onDismiss }) => {
     const classes = useStyles();
-    const { url, key, days, hours, spacing = 1.6, skipAnimation = false } = useSettings();
     const refs = useRef({ dismiss: undefined, url: undefined, key: undefined, button: undefined })
+    const raiseError = useRaise('error');
+
+    const { url, key, days, hours, spacing = 1.6, skipAnimation = false } = useSettings();
     const [{ x }, setSpring] = useSpring(() => ({ x: -600, config: config.stiff, immediate: true }));
     const sum = hours[1] - hours[0];
 
@@ -33,24 +38,33 @@ export const Config = ({ onDismiss }) => {
         }
     };
     const propsUrl = {
-        defaultValue: url, ref: ref => refs.current.url = ref, placeholder: 'Redmine URL',
+        defaultValue: url, disabled: !url, ref: ref => refs.current.url = ref, placeholder: 'Redmine URL',
         onFocus: event => event.target.select()
     };
     const propsKey = {
-        defaultValue: key, ref: ref => refs.current.key = ref, placeholder: 'API key', type: 'password',
+        defaultValue: key, disabled: !key, ref: ref => refs.current.key = ref, placeholder: 'API key', type: 'password',
         onFocus: event => event.target.select()
     };
     const propsSave = {
         ref: ref => refs.current.button = ref,
-        onClick: async () => {
-            try {
-                debugger;
-                refs.current.button.disabled = true;
+        onClick: () => {
+            const reset = async () => {
+                await Promise.all([ // purge data
+                    database.table('projects').clear(),
+                    database.table('issues').clear(),
+                    database.table('activities').clear(),
+                    database.table('entries').clear(),
+                    // database.table('tasks').clear()
+                ]);
+                await storage.set({ url: undefined, key: undefined });
+            };
+            const check = async () => {
                 const url = refs.current.url.value;
                 try {
                     const req = await fetch(url, { method: 'HEAD' });
                     if (!req.ok) throw req.statusText;
                 } catch (error) {
+                    raiseError(error);
                     refs.current.url.select();
                     return;
                 }
@@ -59,24 +73,18 @@ export const Config = ({ onDismiss }) => {
                     const req = await fetch(`${url}/my/account.json`, { headers: { 'X-Redmine-API-Key': key } });
                     if (!req.ok) throw req.statusText;
                 } catch (error) {
+                    raiseError(error);
                     refs.current.key.select();
                     return;
                 }
-                await Promise.all([ // purge data
-                    database.table('projects').clear(),
-                    database.table('issues').clear(),
-                    database.table('activities').clear(),
-                    database.table('entries').clear(),
-                    database.table('tasks').clear()
-                ]);
                 await storage.set({ url, key });
+                onRefresh();
                 // chrome.runtime.sendMessage({ type: 'refresh' }, (results) => {
                 //     results.find(res => res) && reload({});
                 //     refs.current.refresh.disabled = false;
                 // });
-            } finally {
-                refs.current.button.disabled = false;
-            }
+            };
+            url && key && reset() || check();
         }
     };
     const propsSpacing = (value) => ({
@@ -85,7 +93,7 @@ export const Config = ({ onDismiss }) => {
             try {
                 await storage.set({ spacing });
             } catch (error) {
-                console.log(error);
+                raiseError(error);
             }
         }
     });
@@ -95,7 +103,7 @@ export const Config = ({ onDismiss }) => {
             try {
                 await storage.set({ skipAnimation });
             } catch (error) {
-                console.log(error);
+                raiseError(error);
             }
         }
     };
@@ -113,7 +121,7 @@ export const Config = ({ onDismiss }) => {
         <hr />
         <div><FiServer /><input {...propsUrl} /></div>
         <div><FiLock /><input {...propsKey} /></div>
-        <button {...propsSave}>SAVE</button>
+        <button {...propsSave}>{(url && key) ? 'Reset' : 'Save'}</button>
         <hr />
         <div>
             <label>Days:</label>

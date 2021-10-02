@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createUseStyles } from 'react-jss';
 import { useDrag } from 'react-use-gesture';
 import { useSpring, animated, config } from 'react-spring';
@@ -25,13 +25,13 @@ const useStyles = createUseStyles(theme => ({
 
 export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete }) => {
     const classes = useStyles();
-    const { url } = useSettings();
-    const refs = useRef({ projects: [], issues: [], activities: [], issue: undefined });
-    const { current: { projects, issues, activities } } = refs;
+    const { url, refresh } = useSettings();
+    const refs = useRef({ issue: undefined });
+    const [{ projects, issues, activities }, setValues] = useState({ projects: [], issues: [], activities: [] });
     const [minimized, setMinimized] = useState(false);
     const [entry, setEntry] = useState();
     const { id, project, issue, activity, hours, comments, spent_on } = entry || {};
-    const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, config: config.stiff, immediate: true }));
+    const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }));
 
     const propsTitle = {
         ...useDrag(({ down, movement: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, initial: () => [0, y.get()] })()
@@ -93,10 +93,8 @@ export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete
         const issues = await database.table('issues').reverse().toArray();
         const activities = await database.table('activities').orderBy('name').toArray();
         if (aborted) return;
-        refs.current.projects = projects;
-        refs.current.issues = issues;
-        refs.current.activities = activities;
-    }, undefined, []);
+        setValues({ projects, issues, activities });
+    }, undefined, [refresh]);
     useAsyncEffect(async ({ aborted }) => { // animation and autofocus on entry change
         await Promise.all(setSpring.start({ y: -400 }));
         if (aborted) return;
