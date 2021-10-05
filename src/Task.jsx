@@ -33,8 +33,9 @@ export const Task = ({ task: { color, value: current, created_on, updated_on, cl
     const propsInput = ({
         value: value || '', readOnly: !!closed_on,
         style: { textDecoration: closed_on ? 'line-through' : 'none' },
-        onChange: (event) => setValue(event.target.value),
-        onBlur: () => value === current || onChange({ value }) // save changes
+        onChange: event => setValue(event.target.value),
+        onKeyDown: event => value === current || event.which === 13 && onChange({ updated_on: dayjs().toJSON(), value }), // save changes
+        onBlur: _ => value === current || onChange({ updated_on: dayjs().toJSON(), value }) // save changes
     });
     const propsToggle = ({
         style: { color },
@@ -42,7 +43,7 @@ export const Task = ({ task: { color, value: current, created_on, updated_on, cl
     });
     const propsColor = ({
         color: nextColor,
-        onClick: () => onChange({ color: nextColor })
+        onClick: () => onChange({ updated_on: dayjs().toJSON(), color: nextColor })
     });
     const propsDelete = ({
         onClick: () => onDelete()
