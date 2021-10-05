@@ -7,17 +7,23 @@ import { Checkbox } from './atoms/Checkbox.jsx';
 
 const useStyles = createUseStyles(theme => ({
     base: {
-        position: 'fixed', zIndex: 1, width: 420, padding: [8, 16], backgroundColor: theme.background, border: [1, 'solid', theme.gray200],
+        position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
+        backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
+    },
+    title: {
+        display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.dark, color: theme.textSoft, fontWeight: 'bold'
+    },
+    fields: {
         '&>div': {
             display: 'flex', alignItems: 'center',
-            '&>label': { minWidth: 80 },
+            '&>label': { color: theme.textSoft, minWidth: 80 },
             '&>input': { flexGrow: 1, flexShrink: 1, minWidth: 20 }
         },
         '&>div:focus-within': {
-            '&>label': { color: theme.gray850 }, // NOK
+            '&>label': { color: theme.text }, // label with svg icon
         },
-        '&>button': { backgroundColor: theme.gray50 },
-        '&>hr': { borderColor: theme.gray50 }
+        '&>hr': { margin: [0, 10, 0, 30], border: 0, borderBottom: [1, 'solid', theme.border] },
+        '&>button': { backgroundColor: theme.special }
     }
 }));
 
@@ -38,11 +44,11 @@ export const Config = ({ onRefresh, onDismiss }) => {
         }
     };
     const propsUrl = {
-        defaultValue: url, disabled: !url, ref: ref => refs.current.url = ref, placeholder: 'Redmine URL',
+        defaultValue: url, disabled: !!url, ref: ref => refs.current.url = ref, placeholder: 'Redmine URL',
         onFocus: event => event.target.select()
     };
     const propsKey = {
-        defaultValue: key, disabled: !key, ref: ref => refs.current.key = ref, placeholder: 'API key', type: 'password',
+        defaultValue: key, disabled: !!key, ref: ref => refs.current.key = ref, placeholder: 'API key', type: 'password',
         onFocus: event => event.target.select()
     };
     const propsSave = {
@@ -114,31 +120,32 @@ export const Config = ({ onRefresh, onDismiss }) => {
         refs.current.dismiss.focus();
     }, undefined, []);
     return <animated.div className={classes.base} style={{ x }}>
-        <div>
+        <div className={classes.title}>
             <b>Configuration</b>
             <button {...propsDismiss}><FiX /></button>
         </div>
-        <hr />
-        <div><FiServer /><input {...propsUrl} /></div>
-        <div><FiLock /><input {...propsKey} /></div>
-        <button {...propsSave}>{(url && key) ? 'Reset' : 'Save'}</button>
-        <hr />
-        <div>
-            <label>Days:</label>
-            <input defaultValue={days} type={'number'} step={1} min={0} max={28} />
-            <label>Hours:</label>
-            <input defaultValue={hours[0]} type={'number'} step={0.5} min={0} max={24} />
-            <input defaultValue={hours[1]} type={'number'} step={0.5} min={0} max={24} />
-        </div>
-        <div>
-            <label>Design:</label>
-            <Checkbox {...propsSpacing(1.6)}>Wide</Checkbox>
-            <Checkbox {...propsSpacing(1.4)}>Normal</Checkbox>
-            <Checkbox {...propsSpacing(1.2)}>Compact</Checkbox>
-        </div>
-        <div>
-            <label>Misc:</label>
-            <Checkbox {...propsSkipAnimation}>Skip animations</Checkbox>
+        <div className={classes.fields}>
+            <div><FiServer /><input {...propsUrl} /></div>
+            <div><FiLock /><input {...propsKey} /></div>
+            <button {...propsSave}>{(url && key) ? 'Reset' : 'Save'}</button>
+            <hr />
+            <div>
+                <label>Days:</label>
+                <input defaultValue={days} type={'number'} step={1} min={0} max={28} />
+                <label>Hours:</label>
+                <input defaultValue={hours[0]} type={'number'} step={0.5} min={0} max={24} />
+                <input defaultValue={hours[1]} type={'number'} step={0.5} min={0} max={24} />
+            </div>
+            <div>
+                <label>Design:</label>
+                <Checkbox {...propsSpacing(1.6)}>Wide</Checkbox>
+                <Checkbox {...propsSpacing(1.4)}>Normal</Checkbox>
+                <Checkbox {...propsSpacing(1.2)}>Compact</Checkbox>
+            </div>
+            <div>
+                <label>Misc:</label>
+                <Checkbox {...propsSkipAnimation}>Skip animations</Checkbox>
+            </div>
         </div>
     </animated.div>
 };

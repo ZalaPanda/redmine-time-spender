@@ -12,34 +12,26 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
         '&>b': { width: 50 },
         '&>div': { flexGrow: 1 }
     },
-    entry: { position: 'relative', margin: 2, border: '1px solid #333', padding: 8 },
+    entry: { position: 'relative', margin: 2, border: [1, 'solid', theme.border], padding: [8, 4], minHeight: 50 },
     hours: {
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 50, height: 50, float: 'left',
         '&>b, &>svg, &>button': { position: 'absolute', padding: 0, margin: 0 },
         '&>button': {
-            width: 0, height: 36, border: 'none', borderRadius: 18, overflow: 'hidden',
-            backgroundColor: theme.gray200, color: theme.font,
-            '&:focus': { width: 36 },
+            width: 38, height: 38, border: 'none', borderRadius: 20, overflow: 'hidden', opacity: 0,
+            '&:focus, &:hover': { opacity: 1 },
             '&>svg': { fontSize: 20 },
-        },
-        '&:hover>button': { width: 36 }
+        }
     },
-    activity: { backgroundColor: theme.gray100, borderRadius: 4, padding: [0, 4], float: 'right' },
-    comments: { color: '#888' },
+    project: {},
+    issue: { color: theme.special },
+    activity: { backgroundColor: theme.specialBg, color: theme.specialText, borderRadius: 4, padding: [0, 6], float: 'right' },
+    comments: { color: theme.textSoft },
     bar: {
         position: 'relative', height: 12,
         '&>div': { position: 'absolute', display: 'flex', width: '100%', height: '100%' }
     },
-    ellapsed: { backgroundColor: 'red', margin: [4, 0], boxSizing: 'border-box' },
-    spent: { backgroundColor: 'green', border: [1, 'solid', '#333'], boxSizing: 'border-box' },
-    row: {
-        display: 'flex', flexDirection: 'row', flexWrap: 'wrap',
-        '&>*': { flexShrink: 0, maxWidth: '100%', marginRight: '1em', marginBottom: 4, '&:hover': { backgroundColor: 'red' } }
-    },
-    focus: {
-        backgroundColor: 'green',
-        '&:focus-within': { backgroundColor: theme.gray50 }
-    },
+    ellapsed: { backgroundColor: theme.danger, margin: [4, 0], boxSizing: 'border-box' },
+    spent: { backgroundColor: theme.success, border: [1, 'solid', theme.subtle], boxSizing: 'border-box' }
 }));
 
 const Entry = ({ project, issue, activity, hours, comments, disabled, onSelect }) => {
@@ -49,13 +41,14 @@ const Entry = ({ project, issue, activity, hours, comments, disabled, onSelect }
         <div className={classes.hours}>
             <svg height="50" width="50">
                 <circle cx="25" cy="25" r="20" stroke="#263137" strokeWidth="6" fill="none" /> {/* TODO: theme.gray50 */}
-                <circle cx="25" cy="25" r="20.5" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" /> {/* TODO: theme.green500 */}
+                <circle cx="25" cy="25" r="20" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" /> {/* TODO: theme.green500 */}
             </svg>
             <b>{hours}h</b>
             <button disabled={disabled} onClick={onSelect}><FiEdit /></button>
         </div>
         <label className={classes.activity}>{activity.name}</label>
-        <label>{project.name}{issue && <> <a tabIndex="-1" href={`${url}/projects/${issue.id}`} target={'_blank'}>#{issue.id}</a> {issue.subject}</>}</label>
+        <label className={classes.project}>{project.name}</label>
+        {issue && <label className={classes.issue}> <a tabIndex="-1" href={`${url}/projects/${issue.id}`} target={'_blank'}>#{issue.id}</a> {issue.subject}</label>}
         <div className={classes.comments}>{comments}</div>
     </div>
 };

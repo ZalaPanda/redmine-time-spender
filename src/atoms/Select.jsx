@@ -16,11 +16,11 @@ const useStyles = createUseStyles(theme => ({
         '&>div': {
             position: 'absolute', zIndex: 1,
             width: '100%', maxHeight: 200, padding: 0, margin: 0, boxSizing: 'border-box',
-            overflowY: 'auto', border: [1, 'solid', theme.gray300], // boxShadow: [0, 3, 9, theme.font], // '0 3px 9px rgb(0 0 0 / 50%)',
-            color: theme.font, backgroundColor: theme.background,
+            overflowY: 'auto', border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow],
+            color: theme.text, backgroundColor: theme.subtle,
             '&:hidden': { display: 'none' },
             '&>div': { padding: [4, 6], cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-            '&>div[active]': { borderLeft: [4, 'solid', theme.gray400], backgroundColor: theme.gray100 }
+            '&>div[active]': { borderLeft: [4, 'solid', theme.special], backgroundColor: theme.mark }
         }
     }
 }));

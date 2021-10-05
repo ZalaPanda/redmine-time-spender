@@ -20,27 +20,28 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
     }],
     '@global': {
         '*': { fontSize: 16, lineHeight: theme.spacing, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
-        'a': { color: '#3b82f6', '&:visited': { color: '#3b82f6' } },
-        'svg': { margin: [0, 4], verticalAlign: 'middle', strokeWidth: 2.5 },
-        'html': { scrollBehavior: 'smooth', backgroundColor: theme.background, color: theme.font },
+        'a': { fontWeight: 'bold', color: theme.special, '&:visited': { color: theme.special } },
+        'svg': { margin: 2, verticalAlign: 'middle', strokeWidth: 2.5 },
+        'html': { scrollBehavior: 'smooth', backgroundColor: theme.bg, color: theme.text },
         'body': { width: 460, minHeight: 300, margin: 10 },
         'input, textarea, button': {
-            display: 'inline-block', backgroundColor: 'transparent', color: theme.font,
+            display: 'inline-block', backgroundColor: 'transparent', color: theme.text,
             border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
-            '&:focus': { outline: 'none' } // outline: [1, 'solid', theme.gray700]
+            '&:focus': { outline: 'none' },
+            '&:disabled': { filter: 'opacity(0.6)', cursor: 'auto' }
         },
         'button': {
             display: 'inline-block', textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4,
-            '&:hover, &:focus': { backgroundColor: theme.gray200 },
-            '&:disabled': { color: theme.gray500, backgroundColor: theme.gray50, cursor: 'auto' }
+            '&:hover, &:focus': { backgroundColor: theme.specialBg },
+            '&:active': { backgroundColor: theme.special }
         },
+        '::selection': { backgroundColor: theme.mark },
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
-        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', theme.background], backgroundColor: theme.gray150 },
+        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', theme.bg], backgroundColor: theme.specialBg },
         '::-webkit-scrollbar-corner': { backgroundColor: 'transparent' },
         '::-webkit-resizer': { backgroundColor: 'transparent' },
-        '::-webkit-calendar-picker-indicator': { backgroundColor: 'green', color: 'red' },
         // [number input] remove inc/dec buttons
         'input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none' },
         // [date input] remove button

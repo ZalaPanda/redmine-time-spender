@@ -40,3 +40,6 @@ TODO
 * [ ] save new entry on popup close and continue next time
 * [ ] options page
 * [ ] favorite projects/issues/activities
+
+Color: [chroma](https://gka.github.io/chroma.js) [GitHub](https://github.com/gka/chroma.js)
+Theme generator: [CSS Color Theme Generator by Numl.Design](https://theme.numl.design/)

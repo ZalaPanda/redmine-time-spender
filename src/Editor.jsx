@@ -3,23 +3,31 @@ import { createUseStyles } from 'react-jss';
 import { useDrag } from 'react-use-gesture';
 import { useSpring, animated, config } from 'react-spring';
 import { Select } from './atoms/Select.jsx';
-import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2 } from 'react-icons/fi';
+import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
 import { database, useAsyncEffect, useSettings, useListen } from './storage.js';
 import { Textarea } from './atoms/Textarea.jsx';
 
 const useStyles = createUseStyles(theme => ({
-    base: { position: 'fixed', zIndex: 1, width: 420, backgroundColor: theme.background, border: [1, 'solid', theme.gray200], margin: 8, padding: 8, boxShadow: [0, 3, 9, '#000000EE'] },
-    title: { display: 'flex', alignItems: 'center', padding: [0, 10], userSelect: 'none', cursor: 'grab', backgroundColor: theme.gray50, color: theme.gray850, fontWeight: 'bold', '&:active': { cursor: 'grabbing' } },
+    base: {
+        position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
+        backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
+    },
+    title: {
+        display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.dark, color: theme.textSoft, fontWeight: 'bold',
+        userSelect: 'none', cursor: 'grab',
+        '&:active': { cursor: 'grabbing' },
+    },
     fields: {
         '&>div': {
-            display: 'flex', alignItems: 'center', padding: 2, borderTop: [1, 'solid', theme.gray50],
-            '&>label': { color: theme.gray400 }, // label with svg icon
+            display: 'flex', alignItems: 'center', padding: 2,
+            '&>label': { color: theme.specialBg }, // label with svg icon
             '&>div': { flexGrow: 1 }, // project, issue, activity
-            '&>textarea': { flexGrow: 1, color: '#888' } // comments
+            '&>textarea': { color: theme.textSoft, flexGrow: 1 } // comments
         },
         '&>div:focus-within': {
-            '&>label': { color: theme.gray850 }, // label with svg icon
-        }
+            '&>label': { color: theme.textSoft }, // label with svg icon
+        },
+        '&>hr': { margin: [0, 10, 0, 30], border: 0, borderBottom: [1, 'solid', theme.border] }
     }
 }));
 
@@ -118,16 +126,20 @@ export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete
                 <label title={'Project'}><FiPackage /></label>
                 <Select {...propsProject} />
             </div>
+            <hr />
             <div>
                 <label title={'Issue'}><FiHash /></label>
                 <Select {...propsIssue} />
             </div>
+            <hr />
             <div>
                 <label title={'Hours'}><FiClock /></label>
                 <input {...propsHours} />
                 <Select {...propsActivity} />
             </div>
+            <hr />
             <div>
+                <label title={'Comments'}><FiMessageSquare /></label>
                 <Textarea {...propsComments} />
             </div>
             <div>
