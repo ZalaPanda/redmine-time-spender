@@ -1,39 +1,48 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import dayjs from 'dayjs';
-import { createUseStyles } from 'react-jss';
+import { Globals } from 'react-spring';
+import { ThemeProvider, createUseStyles } from 'react-jss';
 import { FiRefreshCw, FiClock, FiSettings } from 'react-icons/fi';
-import { database, useAsyncEffect, useRaise, useSettings, storage } from './storage.js';
+
+import { storage, database, useAsyncEffect, useRaise } from './storage.js';
+import { themes } from './themes.js';
+import { genKey, encryptor, decryptor } from './crypto.js';
+
+import dayjs from 'dayjs';
+
 import { Editor } from './Editor.jsx';
 import { Day } from './Day.jsx';
 import { Task } from './Task.jsx';
 import { Config } from './Config.jsx';
 import { Toaster } from './Toaster.jsx';
-import { cookieKey, encryptItems, decryptItems } from './crypto.js';
 
-const useStyles = createUseStyles(
-    /** @param {Theme} theme */ theme => ({ // color codes: https://www.colorsandfonts.com/color-system
+const useGlobalStyles = createUseStyles({
+    '@font-face': [{
+        fontFamily: 'WorkSans',
+        src: 'url("font/work-sans-v11-latin-regular.woff2") format("woff2")',
+    }, {
+        fontFamily: 'WorkSans',
+        fontWeight: 'bold',
+        src: 'url("font/work-sans-v11-latin-700.woff2") format("woff2")',
+    }],
     '@global': {
-        '*': { fontSize: 16, lineHeight: theme.spacing, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
-        'a': { fontWeight: 'bold', color: theme.special, '&:visited': { color: theme.special } },
+        '*': { fontSize: 16, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
+        'a': { fontWeight: 'bold' },
         'svg': { margin: 2, verticalAlign: 'middle', strokeWidth: 2.5 },
-        'html': { scrollBehavior: 'smooth', backgroundColor: theme.bg, color: theme.text },
+        'html': { scrollBehavior: 'smooth' },
         'body': { width: 460, minHeight: 300, margin: 10 },
         'input, textarea, button': {
-            display: 'inline-block', backgroundColor: 'transparent', color: theme.text,
+            display: 'inline-block', backgroundColor: 'transparent',
             border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
             '&:focus': { outline: 'none' },
             '&:disabled': { filter: 'opacity(0.6)', cursor: 'auto' }
         },
         'button': {
-            display: 'inline-block', textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4,
-            '&:hover, &:focus': { backgroundColor: theme.specialBg },
-            '&:active': { backgroundColor: theme.special }
+            display: 'inline-block', textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4
         },
-        '::selection': { backgroundColor: theme.mark },
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
-        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', theme.bg], backgroundColor: theme.specialBg },
+        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', 'unset'] },
         '::-webkit-scrollbar-corner': { backgroundColor: 'transparent' },
         '::-webkit-resizer': { backgroundColor: 'transparent' },
         // [number input] remove inc/dec buttons
@@ -41,8 +50,39 @@ const useStyles = createUseStyles(
         // [date input] remove button
         '::-webkit-calendar-picker-indicator': { background: 'none' }
     },
+});
+
+const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
+    '@global': {
+        '*': { lineHeight: theme.spacing },
+        'a': { color: theme.special, '&:visited': { color: theme.special } },
+        'html': { backgroundColor: theme.bg, color: theme.text },
+        'input, textarea, button': { color: theme.text },
+        'button': {
+            '&:hover, &:focus': { backgroundColor: theme.specialBg },
+            '&:active': { backgroundColor: theme.special }
+        },
+        // [selection]
+        '::selection': { backgroundColor: theme.mark },
+        // [scrollbar]
+        '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.specialBg },
+    },
     base: { display: 'flex', '&>input': { flexGrow: 1 } }
 }));
+
+const cookieName = '_redmine_time_spender';
+const cookie = (url) => ({
+    get: _ => new Promise((resolve, reject) => chrome.cookies.get({
+        name: cookieName, url
+    }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
+    set: value => new Promise((resolve, reject) => chrome.cookies.set({
+        name: cookieName, value, url, httpOnly: true, secure: true, expirationDate: 2147483647
+    }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie)))
+});
+
+const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+const toHexString = bytes => bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+
 
 // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Listing-time-entries
 const refreshEntries = async (url, key, days) => {
@@ -92,52 +132,149 @@ const refreshIssues = async (url, key) => { // incremental sync
 };
 
 // API: https://www.redmine.org/projects/redmine/wiki/Rest_Enumerations#enumerationstime_entry_activitiesformat
-const refreshActivities = async (url, key) => {
-    const req = await fetch(`${url}/enumerations/time_entry_activities.json`, { headers: { 'X-Redmine-API-Key': key } });
+const refreshActivities = async (redmine) => {
+    // const req = await fetch(`${url}/enumerations/time_entry_activities.json`, { headers: { 'X-Redmine-API-Key': key } });
+    const req = await redmine('/enumerations/time_entry_activities.json');
     const { time_entry_activities: activities } = await req.json();
+    debugger;
     await database.table('activities').bulkPut(activities); // { id, name, active }
 };
 
-export const Layout = () => {
-    const classes = useStyles();
-    const refs = useRef({ entry: undefined, task: undefined, refresh: undefined, config: undefined });
+
+const App = () => {
+    useGlobalStyles();
+
+    /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
+    const [settings, setSettings] = useState();
+    useAsyncEffect(async ({ aborted }) => { // load settings from local storage.
+        const settings = await storage.get();
+        if (aborted) return;
+        setSettings(settings);
+    }, []);
+
+    /** @type {[Theme, React.Dispatch<(prevState: Theme) => Theme>]} */
+    const [theme, setTheme] = useState({ ...themes['dark'], lineHeight: 1.6 });
+    const classes = useThemedStyles({ theme });
+
+    useEffect(() => { // theme update
+        if (!settings?.theme) return;
+        const { theme: { isDark = true, lineHeight = 1.6 } } = settings;
+        setTheme({ ...themes[isDark ? 'dark' : 'light'], lineHeight })
+    }, [settings?.theme]);
+
+    useEffect(() => { // spring animations on/off
+        if (!settings) return;
+        const { skipAnimation } = settings;
+        Globals.assign({ skipAnimation });
+    }, [settings?.skipAnimation]);
+
+    const [functions, setFunctions] = useState();
+    useAsyncEffect(async ({ aborted }) => { // refresh functions
+        if (!settings?.redmine) return;
+        const { redmine: { baseUrl, encodedKey } } = settings;
+        const { value: cryptoHexKey } = await cookie(baseUrl).get();
+        const cryptoKey = fromHexString(cryptoHexKey);
+        const encrypt = encryptor(cryptoKey);
+        const decrypt = decryptor(cryptoKey);
+        const apiKey = decrypt(fromHexString(encodedKey));
+        const redmine = (path, method, body) => fetch(baseUrl.concat(path), {
+            headers: { 'Content-Type': body && 'application/json', 'X-Redmine-API-Key': apiKey },
+            method, body
+        });
+        if (aborted) return;
+        database.tables.map(table => {
+            const { schema: { primKey, indexes } } = table;
+            const encryptedDataKey = '_data';
+            const notEncryptedKeys = [primKey?.name, ...indexes?.map(index => index.name)].filter(name => name);
+            // API: https://dexie.org/docs/Table/Table.hook('creating')
+            table.hook('creating', (_, item) => {
+                const rest = Object.fromEntries(
+                    Object.entries(item).filter(([key]) => {
+                        if (notEncryptedKeys.includes(key)) return false;
+                        delete item[key];
+                        return true;
+                    })
+                );
+                item[encryptedDataKey] = encrypt(rest);
+            });
+            // API: https://dexie.org/docs/Table/Table.hook('reading')
+            table.hook('reading', (item) => {
+                if (!item.hasOwnProperty(encryptedDataKey)) return item;
+                const encryptedDataValue = item[encryptedDataKey];
+                const rest = Object.fromEntries(
+                    Object.entries(item).filter(([key]) => key !== encryptedDataKey));
+                return { ...rest, ...encryptedDataValue && decrypt(encryptedDataValue) };
+            });
+            // API: https://dexie.org/docs/Table/Table.hook('updating')
+            table.hook('updating', (modifications, _, item) => {
+                const modificationKeys = Object.entries(modifications).filter(([key]) => notEncryptedKeys.includes(key));
+                if (Object.keys(modifications).length === modificationKeys.length) return;
+                const encryptedDataValue = item[encryptedDataKey];
+                const keys = Object.fromEntries(
+                    Object.entries(item).filter(([key]) => key !== encryptedDataKey));
+                const updated = { ...keys, ...encryptedDataValue && decrypt(encryptedDataValue), ...modifications };
+                const rest = Object.fromEntries(
+                    Object.entries(updated).filter(([key]) => !notEncryptedKeys.includes(key)));
+                return { ...modificationKeys, [encryptedDataKey]: encrypt(rest) };
+            });
+        });
+        setFunctions({ encrypt, decrypt, redmine });
+    }, [settings?.redmine]);
+
+    const refs = useRef({ addEntryButton: undefined, addTaskButton: undefined, refreshButton: undefined, configButton: undefined });
     const raiseError = useRaise('error');
 
     const [tasks, setTasks] = useState([]);
     const [entries, setEntries] = useState([]);
-    const settings = useSettings();
+    const [values, setValues] = useState([[], [], []]);
 
-    const days = [...Array(settings.days)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
+    const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
     const [today, setToday] = useState(days[0]);
     const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
 
     const refresh = async () => {
         try {
-            refs.current.refresh.disabled = true; // TODO: move to event handler
-            const { url, key, days } = settings;
+            debugger;
+            if (!functions) return;
+            const { redmine } = functions;
+            refs.current.refreshButton.disabled = true; // TODO: move to event handler
+            // const { url, key, days } = settings;
             const results = await Promise.all([
-                refreshEntries(url, key, days),
-                refreshProjects(url, key),
-                refreshIssues(url, key),
-                refreshActivities(url, key)
+            //     refreshEntries(url, key, days),
+            //     refreshProjects(url, key),
+            //     refreshIssues(url, key),
+                refreshActivities(redmine)
             ]);
-            if (!results.find(res => res)) return;
-            await storage.set({ refresh: dayjs().toJSON() });
+            // if (!results.find(res => res)) return;
+            // await storage.set({ refresh: dayjs().toJSON() });
         } catch (error) {
             raiseError(error);
         } finally {
-            refs.current.refresh.disabled = false; // TODO: move to event handler
+            refs.current.refreshButton.disabled = false; // TODO: move to event handler
         }
     };
-    useAsyncEffect(async ({ aborted }) => { // load projects/issues/activities after load
-        console.log(settings);
+
+    const loadTasks = async () => {
+
+    };
+
+    useAsyncEffect(async ({ aborted }) => { // load tasks/entries
+        if (!functions) return;
+        console.time('init');
         const tasks = await database.table('tasks').reverse().toArray();
         const entries = await database.table('entries').reverse().toArray();
-        const issues = await database.table('issues').bulkGet([...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))]);
+        // const projects = await database.table('projects').toArray();
+        // const issues = await database.table('issues').reverse().toArray();
+        const activities = await database.table('activities').orderBy('name').toArray();
+        const issueIdsInEntries = [...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))];
+        const issues = await database.table('issues').where('id').anyOf(issueIdsInEntries).toArray();
+        console.timeEnd('init');
+        console.log(activities);
         if (aborted) return;
-        setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
         setTasks(tasks); // NOTE: batched updates in React 19
-    }, [settings?.refresh]);
+        setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
+        // setValues([projects, issues, activities]);
+    }, [functions]);
 
     const onRefresh = () => {
         refresh();
@@ -194,7 +331,7 @@ export const Layout = () => {
                     setEntries(entries => [{ ...update, issue }, ...entries]);
                 }
                 setEntry();
-                refs.current.entry.focus();
+                refs.current.addEntryButton.focus();
             } catch (error) {
                 raiseError(error);
             }
@@ -206,14 +343,14 @@ export const Layout = () => {
                 if (!req.ok) await throwRedmineError(req);
                 await database.table('entries').delete(id);
                 setEntries(entries => entries.filter(entry => entry.id !== id));
-                refs.current.entry.focus();
+                refs.current.addEntryButton.focus();
                 setEntry();
             } catch (error) {
                 raiseError(error);
             }
         },
         onDuplicate: (entry) => setEntry(entry),
-        onDismiss: () => setEntry() || refs.current.entry.focus()
+        onDismiss: () => setEntry() || refs.current.addEntryButton.focus()
     });
 
     const [config, setConfig] = useState(false);
@@ -252,145 +389,22 @@ export const Layout = () => {
         onSelectEntry: (entry) => () => setEntry(entry)
     });
 
-    // useEffect(() => {
-    //     chrome.permissions.getAll(permissions => console.log({ permissions }));
-    // });
-    const test = async () => {
-        console.time('db');
-        const issues = await database.table('issues').toArray();
-        console.timeEnd('db');
+    useEffect(() => refs.current.addEntryButton?.focus(), []); // focus on add entry button
 
-        const { url } = settings;
-        // const key = await cookieKey(url).set();
-        const key = await cookieKey(url).get();
-        // console.time('encryptItems');
-        // const encrypted = encryptItems(key, database.table('issues').schema, issues);
-        // console.timeEnd('encryptItems');
-        // console.log(encrypted);
-
-        // const result = await database.table('issues').bulkPut(encrypted);
-        // console.log(result);
-
-        console.time('decryptItems');
-        const decrypted = decryptItems(key, issues);
-        console.timeEnd('decryptItems');
-        console.log(decrypted);
-
-        // const schema = database.table('issues').schema;
-        // const keys = [schema.primKey.name, ...schema.indexes.map(index => index.name)].filter(key => key);
-        // console.time('strip');
-        // const strip = issues.map(entry => ([
-        //     Object.fromEntries(Object.entries(entry).filter(([key]) => keys.includes(key))),
-        //     // { time: new Date().toJSON() }
-        //     Object.fromEntries(Object.entries(entry).filter(([key]) => !keys.includes(key)))
-        // ]));
-        // console.timeEnd('strip');
-        // // console.log(strip);
-        // const encoder = new TextEncoder();
-        // const decoder = new TextDecoder();
-        // // console.time('encoded');
-        // // const encoded = strip.map(([keys, values]) => ([keys, encoder.encode(JSON.stringify(values))]));
-        // // console.timeEnd('encoded');
-        // // console.log(encoded);
-
-        // const encode = (encoder, key) => async ([keys, values]) => {
-        //     const text = JSON.stringify(values);
-        //     // const data = decodeUTF8(text);
-        //     const data = encoder.encode(text);
-        //     const iv = window.crypto.getRandomValues(new Uint8Array(16));
-        //     const code = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-        //     // const blob = new Blob([iv, code]);
-        //     return { ...keys, blob: [iv, code] };
-        // };
-        // const decode = (decoder, key) => async ({ blob, ...keys }) => {
-        //     // const iv = await blob.slice(0, 16).arrayBuffer();
-        //     // const code = await blob.slice(16).arrayBuffer();
-        //     const [iv, code] = blob;
-        //     const data = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, code);
-        //     // const text = encodeUTF8(new Uint8Array(data));
-        //     const text = decoder.decode(data);
-        //     const values = JSON.parse(text);
-        //     return { ...keys, ...values };
-        // };
-        // const generateKey = rawKey => window.crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-        // const secret = window.crypto.getRandomValues(new Uint8Array(32));
-        // const key = await generateKey(secret);
-        // // const item1 = await encode(encoder, key)(strip[0]);
-        // // const item2 = await decode(decoder, key)(item1);
-
-
-
-        // const x = generateKey1();
-        // console.time('encode1');
-        // const xxx = strip.map(([keys, values]) => ([keys, encrypt1(encoder, values, x)]));
-        // console.timeEnd('encode1');
-        // console.time('decode1');
-        // const zzz = xxx.map(([keys, values]) => ([keys, decrypt1(decoder, values, x)]));
-        // console.timeEnd('decode1');
-        // console.log(zzz);
-
-        // console.time('encode');
-        // const fn1 = encode(encoder, key);
-        // const save = await Promise.all(strip.map(fn1));
-        // console.timeEnd('encode');
-
-        // console.log(save.map(item => item.blob[1].byteLength));
-
-        // console.time('decode');
-        // const fn2 = decode(decoder, key);
-        // const load = await Promise.all(save.map(fn2));
-        // console.timeEnd('decode');
-        // console.log(load);
-        // [1]
-        // encode: 609.43994140625 ms
-        // decode: 1748.511962890625 ms
-
-        // chrome.sessions.getDevices(devices => console.log({ devices }));
-        // chrome.identity.getProfileUserInfo(userInfo => console.log(userInfo));
-        // chrome.permissions.request({
-        //     permissions: ['cookies', 'webRequest'],
-        //     origins: ['https://redmine.bhu.flextronics.com/']
-        // }, (granted) => {
-        //     // The callback argument will be true if the user granted the permissions.
-        //     debugger;
-        //     // if (granted) {
-        //     //     doSomething();
-        //     // } else {
-        //     //     doSomethingElse();
-        //     // }
-        // });
-
-        // chrome.permissions.contains({ origins: ['https://redmine.bhu.flextronics.com/'], permissions: ['cookies'] }, result => {
-        //     console.log({ result });
-        //     if (!result) chrome.permissions.request({ origins: ['https://redmine.bhu.flextronics.com/'], permissions: ['cookies'] }, granted => {
-        //         console.log({ granted });
-        //         // if (!granted) return;
-        //         chrome.cookies.set({
-        //             url: 'https://redmine.bhu.flextronics.com/',
-        //             name: 'key',
-        //             value: new Date().toJSON(),
-        //             httpOnly: true,
-        //             sameSite: "strict",
-        //             secure: true,
-        //             expirationDate: 2147483647 // we will have a problem in 2038
-        //         }, (cookie) => console.log({ cookie }));
-        //     });
-        // });
-    }
-
-    useEffect(() => refs.current.entry.focus(), []); // focus on add entry button
-    return <>
-        <Editor {...propsEditor} />
+    if (!settings) return null;
+    return <ThemeProvider theme={theme}>
+        {/* <Editor {...propsEditor} /> */}
         {config && <Config {...propsConfig} />}
         <Toaster />
         <div className={classes.base}>
-            <button ref={ref => refs.current.entry = ref} title={'Add time entry'} onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
-            <input ref={ref => refs.current.task = ref} {...propsAddTask} />
-            <button ref={ref => refs.current.refresh = ref} title={'Refresh'} onClick={onRefresh}><FiRefreshCw /></button>
-            <button ref={ref => refs.current.config = ref} title={'Configuration'} onClick={onConfig}><FiSettings /></button>
-            <button onClick={test}><FiSettings /></button>
+            <button ref={ref => refs.current.addEntryButton = ref} title={'Add time entry'} onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
+            <input ref={ref => refs.current.addTaskButton = ref} {...propsAddTask} />
+            <button ref={ref => refs.current.refreshButton = ref} title={'Refresh'} onClick={onRefresh}><FiRefreshCw /></button>
+            <button ref={ref => refs.current.configButton = ref} title={'Configuration'} onClick={onConfig}><FiSettings /></button>
         </div>
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
-        {days.map(day => <Day {...propsDay(day)} />)}
-    </>;
+        {/* {days.map(day => <Day {...propsDay(day)} />)} */}
+    </ThemeProvider>;
 };
+
+export default App;

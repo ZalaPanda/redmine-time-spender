@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { createUseStyles } from 'react-jss';
 import { FiTrash2, FiDroplet, FiSquare, FiCheckSquare } from 'react-icons/fi';
 
-const useStyles = createUseStyles(theme => ({
+const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     base: {
         display: 'flex', alignItems: 'center',
         '&>button': { padding: 0 },

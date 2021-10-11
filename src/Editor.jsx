@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { createUseStyles } from 'react-jss';
 import { useDrag } from 'react-use-gesture';
 import { useSpring, animated, config } from 'react-spring';
@@ -102,7 +102,7 @@ export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete
         const activities = await database.table('activities').orderBy('name').toArray();
         if (aborted) return;
         setValues({ projects, issues, activities });
-    }, undefined, [refresh]);
+    }, [refresh]);
     useAsyncEffect(async ({ aborted }) => { // animation and autofocus on entry change
         await Promise.all(setSpring.start({ y: -400 }));
         if (aborted) return;
@@ -110,7 +110,7 @@ export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete
         if (!init) return;
         refs.current.issue.focus();
         await Promise.all(setSpring.start({ y: 0 }));
-    }, undefined, [init]);
+    }, [init]);
     useListen('unload', () => setEntry(entry => { // save current values to localStorage
         if (entry) window.localStorage.setItem('draft', JSON.stringify(entry));
         else window.localStorage.removeItem('draft');

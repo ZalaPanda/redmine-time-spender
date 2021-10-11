@@ -118,7 +118,7 @@ export const Config = ({ onRefresh, onDismiss }) => {
         await Promise.all(setSpring.start({ x: 0 }));
         if (aborted) return;
         refs.current.dismiss.focus();
-    }, undefined, []);
+    }, []);
     return <animated.div className={classes.base} style={{ x }}>
         <div className={classes.title}>
             <b>Configuration</b>

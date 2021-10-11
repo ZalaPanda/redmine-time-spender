@@ -82,6 +82,7 @@
 // const checkRefreshAlarm = () => chrome.alarms.get('refresh', (alarm) => alarm || chrome.alarms.create('refresh', { periodInMinutes: 3.0 }));
 // chrome.runtime.onInstalled.addListener(checkRefreshAlarm);
 chrome.action.onClicked.addListener(() => chrome.browserAction.setPopup()); // open popup
+
 // chrome.alarms.get('refresh', (alarm) => alarm || chrome.alarms.create('refresh', { periodInMinutes: 1.0 }));
 
 // chrome.runtime.onSuspend.addListener(() => log('onSuspend'));

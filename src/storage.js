@@ -12,7 +12,6 @@ database.version(1).stores({
 });
 database.open();
 
-export const log = (...data) => database.table('logs').add([new Date().toJSON(), ...data]) || console.log(...data);
 export const storage = {
     get: (keys) => new Promise((resolve, reject) => chrome.storage.local.get(keys, (items) => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(items))),
     set: (items) => new Promise((resolve, reject) => chrome.storage.local.set(items, () => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve()))
@@ -28,8 +27,8 @@ export const useListen = (type, callback = (_detail) => { }) => useEffect(() => 
     window.addEventListener(type, listener);
     return () => window.removeEventListener(type, listener);
 }, [callback]);
-export const useAsyncEffect = (effect = async (_signal) => { }, cleaning = async () => { }, deps = undefined) => useEffect(() => {
+export const useAsyncEffect = (effect = async (_signal) => { }, deps = undefined) => useEffect(() => { // NOTE: cleaning not used/implemented
     const controller = new AbortController();
     effect && effect(controller.signal);
-    return () => controller.abort() || cleaning && cleaning();
+    return () => controller.abort();
 }, deps);

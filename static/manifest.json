@@ -27,15 +27,9 @@
         }
     },
     "permissions": [
-        "alarms",
-        "tabs",
-        "storage",
-        "webRequest",
-        "notifications"
+        "storage", "cookies"
     ],
     "host_permissions": [
-        "https://redmine.bhu.flextronics.com/",
-        "https://zalnt238.europe.ad.flextronics.com/",
-        "https://login.microsoftonline.com/"
+        "https://*/*"
     ]
 }

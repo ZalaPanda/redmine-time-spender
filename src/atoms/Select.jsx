@@ -74,7 +74,7 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
             if (which === 40) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, +1) })) || event.preventDefault(); // down -> select next option
             if (which === 38) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, -1) })) || event.preventDefault(); // up -> select prev option
             if (which === 32) return search.value || setSearch(search => ({ ...search, index: 0, active: !search.active })) || event.preventDefault(); // space (first) -> toggle list
-            if (which === 27) return setSearch({ value: '', index: -1, active: false }); // esc -> hide list
+            if (which === 27) return setSearch({ value: '', index: -1, active: false }) || event.preventDefault(); // esc -> hide list
             if (which === 13) return filtered[search.index] && setValue(filtered[search.index]) || event.preventDefault(); // enter -> change current value
             if (which === 9) return filtered[search.index] && setValue(filtered[search.index]); // tab -> change current value
         }

@@ -70,7 +70,7 @@ export const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
     useAsyncEffect(async () => {
         const height = selected ? refs.current.list.scrollHeight : 0;
         await Promise.all(setSpring.start({ height }));
-    }, undefined, [entries, selected]);
+    }, [entries, selected]);
     return <>
         <div className={classes.base}>
             <label onClick={onSelectDay}>{day}</label>
