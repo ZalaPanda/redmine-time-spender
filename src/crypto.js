@@ -3,25 +3,41 @@ import { secretbox, randomBytes } from 'tweetnacl';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-const genNonce = () => randomBytes(secretbox.nonceLength);
-export const genKey = () => randomBytes(secretbox.keyLength);
+const createNonce = () => randomBytes(secretbox.nonceLength);
 
-export const encryptor = (key) => (value) => {
-    const nonce = genNonce();
-    const raw = encoder.encode(JSON.stringify(value));
-    const box = secretbox(raw, nonce, key);
-    const nonceAndBox = new Uint8Array(nonce.length + box.length);
-    nonceAndBox.set(nonce);
-    nonceAndBox.set(box, nonce.length);
-    return nonceAndBox;
-};
+export const createKey = () => randomBytes(secretbox.keyLength);
 
-export const decryptor = (key) => (nonceAndBox) => {
-    const nonce = nonceAndBox.slice(0, secretbox.nonceLength);
-    const box = nonceAndBox.slice(secretbox.nonceLength);
-    const raw = secretbox.open(box, nonce, key);
-    const value = raw && JSON.parse(decoder.decode(raw));
-    return value;
+export const createCrypto = (key) => ({
+    /**
+     * @param {value} any
+     * @returns {Uint8Array}
+     * */
+     encrypt: (value) => {
+        const nonce = createNonce();
+        const raw = encoder.encode(JSON.stringify(value));
+        const box = secretbox(raw, nonce, key);
+        const nonceAndBox = new Uint8Array(nonce.length + box.length);
+        nonceAndBox.set(nonce);
+        nonceAndBox.set(box, nonce.length);
+        return nonceAndBox;
+    },
+    /**
+     * @param {Uint8Array} nonceAndBox
+     * @returns {any}
+     * */
+    decrypt: (nonceAndBox) => {
+        const nonce = nonceAndBox.slice(0, secretbox.nonceLength);
+        const box = nonceAndBox.slice(secretbox.nonceLength);
+        const raw = secretbox.open(box, nonce, key);
+        const value = raw && JSON.parse(decoder.decode(raw));
+        return value;
+    }
+});
+
+export const useCrypto = () => {
+    const [key, setKey] = useState();
+    const crypto = useMemo(() => key && createCrypto(key), [key]);
+    return [crypto, setKey];
 };
 
 // const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));

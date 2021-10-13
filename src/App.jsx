@@ -3,9 +3,9 @@ import { Globals } from 'react-spring';
 import { ThemeProvider, createUseStyles } from 'react-jss';
 import { FiRefreshCw, FiClock, FiSettings } from 'react-icons/fi';
 
-import { storage, database, useAsyncEffect, useRaise } from './storage.js';
+import { storage, database, useAsyncEffect, useRaise, useListen } from './storage.js';
 import { themes } from './themes.js';
-import { genKey, encryptor, decryptor } from './crypto.js';
+import { createKey, createCrypto } from './crypto.js';
 
 import dayjs from 'dayjs';
 
@@ -83,64 +83,6 @@ const cookie = (url) => ({
 const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 const toHexString = bytes => bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
 
-
-// API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Listing-time-entries
-const refreshEntries = async (url, key, days) => {
-    const from = dayjs().subtract(days, 'day').format('YYYY-MM-DD');
-    await database.table('entries').where('spent_on').below(from).delete(); // remove old entries // .filter(entry => entry.spent_on < from)
-    const last = await database.table('entries').orderBy('updated_on').last() || {};
-    const entries = [];
-    while (true) {
-        const req = await fetch(`${url}/time_entries.json?user_id=me&limit=100&offset=${entries.length}&from=${from}`, { headers: { 'X-Redmine-API-Key': key } });
-        const { time_entries: chunk, total_count: total, offset, limit } = await req.json();
-        entries.push(...chunk); // { id, project, issue, user, activity, hours, comments, spent_on, created_on, updated_on }
-        if (total <= limit + offset) break;
-    }
-    if (last?.updated_on && !entries.find(entry => entry.updated_on > last.updated_on)) return;
-    crypto.encrypt(database.table('entries').schema, entries)
-    return await database.table('entries').bulkPut(entries);
-};
-
-// API: https://www.redmine.org/projects/redmine/wiki/Rest_Projects#Listing-projects
-const refreshProjects = async (url, key) => { // full sync
-    const last = await database.table('projects').orderBy('updated_on').last() || {};
-    const projects = [];
-    while (true) {
-        const req = await fetch(`${url}/projects.json?limit=100&offset=${projects.length}`, { headers: { 'X-Redmine-API-Key': key } });
-        const { projects: chunk, total_count: total, offset, limit } = await req.json();
-        projects.push(...chunk); // { id, name, identifier, description, created_on, updated_on }
-        if (total <= limit + offset) break;
-    }
-    if (last?.updated_on && !projects.find(project => project.updated_on > last.updated_on)) return;
-    await database.table('projects').clear();
-    return await database.table('projects').bulkAdd(projects);
-};
-
-// API: https://www.redmine.org/projects/redmine/wiki/Rest_Issues#Listing-issues
-const refreshIssues = async (url, key) => { // incremental sync
-    const last = await database.table('issues').orderBy('updated_on').last() || {};
-    const issues = [];
-    while (true) {
-        const req = await fetch(`${url}/issues.json?limit=100&offset=${issues.length}&status_id=*${last?.updated_on ? `&updated_on=>=${last.updated_on}` : ''}`, { headers: { 'X-Redmine-API-Key': key } });
-        const { issues: chunk, total_count: total, offset, limit } = await req.json();
-        issues.push(...chunk); // { id, project, subject, description, created_on, updated_on, closed_on }
-        if (total <= limit + offset) break;
-    }
-    if (last?.updated_on && !issues.find(issue => issue.updated_on > last.updated_on)) return;
-    console.log(database.table('issues').schema);
-    return await database.table('issues').bulkPut(issues);
-};
-
-// API: https://www.redmine.org/projects/redmine/wiki/Rest_Enumerations#enumerationstime_entry_activitiesformat
-const refreshActivities = async (redmine) => {
-    // const req = await fetch(`${url}/enumerations/time_entry_activities.json`, { headers: { 'X-Redmine-API-Key': key } });
-    const req = await redmine('/enumerations/time_entry_activities.json');
-    const { time_entry_activities: activities } = await req.json();
-    debugger;
-    await database.table('activities').bulkPut(activities); // { id, name, active }
-};
-
-
 const App = () => {
     useGlobalStyles();
 
@@ -168,34 +110,39 @@ const App = () => {
         Globals.assign({ skipAnimation });
     }, [settings?.skipAnimation]);
 
-    const [functions, setFunctions] = useState();
-    useAsyncEffect(async ({ aborted }) => { // refresh functions
-        if (!settings?.redmine) return;
+    const [config, setConfig] = useState(false); // config shown/hidden
+    const [crypto, setCryptoKey] = useCrypto();
+    const [redmine, setRedmineConfig] = useRedmine();
+    const [redmine, setRedmine] = useState();
+    useAsyncEffect(async ({ aborted }) => { // init crypto
+        if (!settings) return;
+        if (!settings?.redmine) return setConfig(true); // show config
         const { redmine: { baseUrl, encodedKey } } = settings;
-        const { value: cryptoHexKey } = await cookie(baseUrl).get();
-        const cryptoKey = fromHexString(cryptoHexKey);
-        const encrypt = encryptor(cryptoKey);
-        const decrypt = decryptor(cryptoKey);
-        const apiKey = decrypt(fromHexString(encodedKey));
-        const redmine = (path, method, body) => fetch(baseUrl.concat(path), {
-            headers: { 'Content-Type': body && 'application/json', 'X-Redmine-API-Key': apiKey },
-            method, body
-        });
+        const { value: cryptoKey } = await cookie(baseUrl).get();
+        const crypto = createCrypto(fromHexString(cryptoKey));
+        const apiKey = crypto.decrypt(fromHexString(encodedKey));
+        const redmine = createRedmineFetch(baseUrl, apiKey);
         if (aborted) return;
-        database.tables.map(table => {
+        database.tables.map(table => { // TODO: change to Dexie 3 - https://dexie.org/docs/DBCore/DBCoreTable
             const { schema: { primKey, indexes } } = table;
             const encryptedDataKey = '_data';
             const notEncryptedKeys = [primKey?.name, ...indexes?.map(index => index.name)].filter(name => name);
             // API: https://dexie.org/docs/Table/Table.hook('creating')
             table.hook('creating', (_, item) => {
                 const rest = Object.fromEntries(
-                    Object.entries(item).filter(([key]) => {
-                        if (notEncryptedKeys.includes(key)) return false;
-                        delete item[key];
-                        return true;
-                    })
-                );
-                item[encryptedDataKey] = encrypt(rest);
+                    Object.entries(item).filter(([key]) => notEncryptedKeys.includes(key) && delete item[key])); // !!delete === true (wow!)
+                item[encryptedDataKey] = crypto.encrypt(rest);
+            });
+            // API: https://dexie.org/docs/Table/Table.hook('updating')
+            table.hook('updating', (modifications, _, item) => {
+                if (!Object.keys(modifications).find(key => !notEncryptedKeys.includes(key))) return; // only keys updated
+                const encryptedDataValue = item[encryptedDataKey];
+                const updated = { ...item, ...encryptedDataValue && crypto.decrypt(encryptedDataValue), ...modifications };
+                const keys = Object.fromEntries(
+                    Object.entries(modifications).filter(([key]) => notEncryptedKeys.includes(key)));
+                const rest = Object.fromEntries(
+                    Object.entries(updated).filter(([key]) => key !== encryptedDataKey && !notEncryptedKeys.includes(key)));
+                return { ...keys, [encryptedDataKey]: crypto.encrypt(rest) };
             });
             // API: https://dexie.org/docs/Table/Table.hook('reading')
             table.hook('reading', (item) => {
@@ -203,25 +150,30 @@ const App = () => {
                 const encryptedDataValue = item[encryptedDataKey];
                 const rest = Object.fromEntries(
                     Object.entries(item).filter(([key]) => key !== encryptedDataKey));
-                return { ...rest, ...encryptedDataValue && decrypt(encryptedDataValue) };
-            });
-            // API: https://dexie.org/docs/Table/Table.hook('updating')
-            table.hook('updating', (modifications, _, item) => {
-                const modificationKeys = Object.entries(modifications).filter(([key]) => notEncryptedKeys.includes(key));
-                if (Object.keys(modifications).length === modificationKeys.length) return;
-                const encryptedDataValue = item[encryptedDataKey];
-                const keys = Object.fromEntries(
-                    Object.entries(item).filter(([key]) => key !== encryptedDataKey));
-                const updated = { ...keys, ...encryptedDataValue && decrypt(encryptedDataValue), ...modifications };
-                const rest = Object.fromEntries(
-                    Object.entries(updated).filter(([key]) => !notEncryptedKeys.includes(key)));
-                return { ...modificationKeys, [encryptedDataKey]: encrypt(rest) };
+                return { ...rest, ...encryptedDataValue && crypto.decrypt(encryptedDataValue) };
             });
         });
-        setFunctions({ encrypt, decrypt, redmine });
+        setCrypto(crypto);
+        setRedmine(redmine);
     }, [settings?.redmine]);
 
-    const refs = useRef({ addEntryButton: undefined, addTaskButton: undefined, refreshButton: undefined, configButton: undefined });
+    const loadTasks = async ({ aborted }) => {
+        const tasks = await database.table('tasks').reverse().toArray();
+        if (aborted) return;
+        setTasks(tasks);
+    };
+    useAsyncEffect(loadTasks, [crypto]);
+
+    const loadEntries = async ({ aborted }) => {
+        const entries = await database.table('entries').reverse().toArray();
+        const issueIdsInEntries = [...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))];
+        const issues = await database.table('issues').where('id').anyOf(issueIdsInEntries).toArray();
+        if (aborted) return;
+        setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
+    };
+    useAsyncEffect(loadEntries, [crypto]);
+
+    const refs = useRef({ addEntryButton: undefined, addTaskInput: undefined, refreshButton: undefined, configButton: undefined });
     const raiseError = useRaise('error');
 
     const [tasks, setTasks] = useState([]);
@@ -232,21 +184,21 @@ const App = () => {
     const [today, setToday] = useState(days[0]);
     const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
 
+    const filteredTasks = useMemo(() => tasks.filter(({ closed_on }) => !closed_on || dayjs(today).isSame(closed_on, 'day')), [tasks, today]);
+    const filteredEntries = useMemo(() => entries.reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {}), [entries]);
+
     const refresh = async () => {
         try {
-            debugger;
-            if (!functions) return;
-            const { redmine } = functions;
             refs.current.refreshButton.disabled = true; // TODO: move to event handler
-            // const { url, key, days } = settings;
-            const results = await Promise.all([
-            //     refreshEntries(url, key, days),
-            //     refreshProjects(url, key),
-            //     refreshIssues(url, key),
+            const { days } = settings;
+            const [changedEntries, ...changedValues] = await Promise.all([
+                refreshEntries(redmine, days),
+                refreshProjects(redmine),
+                refreshIssues(redmine),
                 refreshActivities(redmine)
             ]);
-            // if (!results.find(res => res)) return;
-            // await storage.set({ refresh: dayjs().toJSON() });
+            if (changedEntries) loadEntries();
+            if (changedValues.find(value => value)) loadEntries();
         } catch (error) {
             raiseError(error);
         } finally {
@@ -254,40 +206,13 @@ const App = () => {
         }
     };
 
-    const loadTasks = async () => {
+    const propsAddEntryButton = ({
+        ref: ref => refs.current.addEntryButton = ref, title: 'Add time entry',
+        onClick: _ => setEntry({ spent_on: today })
+    });
 
-    };
-
-    useAsyncEffect(async ({ aborted }) => { // load tasks/entries
-        if (!functions) return;
-        console.time('init');
-        const tasks = await database.table('tasks').reverse().toArray();
-        const entries = await database.table('entries').reverse().toArray();
-        // const projects = await database.table('projects').toArray();
-        // const issues = await database.table('issues').reverse().toArray();
-        const activities = await database.table('activities').orderBy('name').toArray();
-        const issueIdsInEntries = [...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))];
-        const issues = await database.table('issues').where('id').anyOf(issueIdsInEntries).toArray();
-        console.timeEnd('init');
-        console.log(activities);
-        if (aborted) return;
-        setTasks(tasks); // NOTE: batched updates in React 19
-        setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
-        // setValues([projects, issues, activities]);
-    }, [functions]);
-
-    const onRefresh = () => {
-        refresh();
-    };
-    const throwRedmineError = async (req) => {
-        if (req.status === 422) { // 422 Unprocessable Entity
-            const { errors } = await req.json(); // API: https://www.redmine.org/projects/redmine/wiki/Rest_api#Validation-errors
-            throw errors.join('\r\n');
-        }
-        throw req.statusText;
-    }
     const propsAddTask = ({
-        placeholder: 'Add task',
+        ref: ref => refs.current.addTaskInput = ref, placeholder: 'Add task',
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
             if (which === 13) {
@@ -299,6 +224,17 @@ const App = () => {
             }
         }
     });
+
+    const propsRefreshButton = ({
+        ref: ref => refs.current.refreshButton = ref, title: 'Refresh',
+        onClick: refresh
+    });
+
+    const propsConfigButton = ({
+        ref: ref => refs.current.configButton = ref, title: 'Configuration',
+        onClick: _ => setConfig(true)
+    });
+
     const propsEditor = ({
         entry,
         onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
@@ -353,13 +289,10 @@ const App = () => {
         onDismiss: () => setEntry() || refs.current.addEntryButton.focus()
     });
 
-    const [config, setConfig] = useState(false);
-    const onConfig = () => setConfig(true);
     const propsConfig = {
-        onRefresh, onDismiss: () => setConfig(false)
+        onRefresh: refresh, onDismiss: () => setConfig(false)
     };
 
-    const filteredTasks = useMemo(() => tasks.filter(({ closed_on }) => !closed_on || dayjs(today).isSame(closed_on, 'day')), [tasks, today]);
     const propsTask = (task) => ({
         task, key: task.id,
         onChange: async (props) => {
@@ -382,7 +315,6 @@ const App = () => {
         }
     });
 
-    const filteredEntries = useMemo(() => entries.reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {}), [entries]);
     const propsDay = (day) => ({
         day, key: day, selected: day === today, entries: filteredEntries[day] || [],
         onSelectDay: () => setToday(day === today ? undefined : day),
@@ -397,10 +329,10 @@ const App = () => {
         {config && <Config {...propsConfig} />}
         <Toaster />
         <div className={classes.base}>
-            <button ref={ref => refs.current.addEntryButton = ref} title={'Add time entry'} onClick={() => setEntry({ spent_on: today })}><FiClock /></button>
-            <input ref={ref => refs.current.addTaskButton = ref} {...propsAddTask} />
-            <button ref={ref => refs.current.refreshButton = ref} title={'Refresh'} onClick={onRefresh}><FiRefreshCw /></button>
-            <button ref={ref => refs.current.configButton = ref} title={'Configuration'} onClick={onConfig}><FiSettings /></button>
+            <button {...propsAddEntryButton}><FiClock /></button>
+            <input {...propsAddTask} />
+            <button {...propsRefreshButton}><FiRefreshCw /></button>
+            <button {...propsConfigButton}><FiSettings /></button>
         </div>
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {/* {days.map(day => <Day {...propsDay(day)} />)} */}
