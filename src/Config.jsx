@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { createUseStyles } from 'react-jss';
 import { FiLock, FiServer, FiX } from 'react-icons/fi';
-import { database, storage, useAsyncEffect, useRaise, useSettings } from './storage.js';
+import { storage, useAsyncEffect, useRaise, useSettings } from './storage.js';
 import { useSpring, animated, config } from 'react-spring';
 import { Checkbox } from './atoms/Checkbox.jsx';
 
@@ -27,14 +27,14 @@ const useStyles = createUseStyles(theme => ({
     }
 }));
 
-export const Config = ({ onRefresh, onDismiss }) => {
+export const Config = ({ settings, onRefresh, onDismiss }) => {
     const classes = useStyles();
     const refs = useRef({ dismiss: undefined, url: undefined, key: undefined, button: undefined })
     const raiseError = useRaise('error');
 
-    const { url, key, days, hours, spacing = 1.6, skipAnimation = false } = useSettings();
+    const { url, key, numberOfDays = 7, workHours = [8, 16], spacing = 1.6, skipAnimation = false } = settings;
     const [{ x }, setSpring] = useSpring(() => ({ x: -600, config: config.stiff, immediate: true }));
-    const sum = hours[1] - hours[0];
+    const sum = workHours[1] - workHours[0];
 
     const propsDismiss = {
         ref: ref => refs.current.dismiss = ref,
@@ -56,10 +56,10 @@ export const Config = ({ onRefresh, onDismiss }) => {
         onClick: () => {
             const reset = async () => {
                 await Promise.all([ // purge data
-                    database.table('projects').clear(),
-                    database.table('issues').clear(),
-                    database.table('activities').clear(),
-                    database.table('entries').clear(),
+                    // database.table('projects').clear(),
+                    // database.table('issues').clear(),
+                    // database.table('activities').clear(),
+                    // database.table('entries').clear(),
                     // database.table('tasks').clear()
                 ]);
                 await storage.set({ url: undefined, key: undefined });
@@ -131,10 +131,10 @@ export const Config = ({ onRefresh, onDismiss }) => {
             <hr />
             <div>
                 <label>Days:</label>
-                <input defaultValue={days} type={'number'} step={1} min={0} max={28} />
+                <input defaultValue={numberOfDays} type={'number'} step={1} min={0} max={28} />
                 <label>Hours:</label>
-                <input defaultValue={hours[0]} type={'number'} step={0.5} min={0} max={24} />
-                <input defaultValue={hours[1]} type={'number'} step={0.5} min={0} max={24} />
+                <input defaultValue={workHours[0]} type={'number'} step={0.5} min={0} max={24} />
+                <input defaultValue={workHours[1]} type={'number'} step={0.5} min={0} max={24} />
             </div>
             <div>
                 <label>Design:</label>

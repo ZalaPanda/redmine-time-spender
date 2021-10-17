@@ -3,11 +3,11 @@ import { useSpring, animated } from 'react-spring';
 import { createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import { FiEdit } from 'react-icons/fi';
-import { useAsyncEffect, useSettings } from './storage.js';
+import { useAsyncEffect } from './storage.js';
 
 const useStyles = createUseStyles(theme => ({ // color codes: https://www.colorsandfonts.com/color-system
     base: {
-        display: 'flex',
+        display: 'flex', alignItems: 'center',
         '&>label': { width: 100 },
         '&>b': { width: 50 },
         '&>div': { flexGrow: 1 }
@@ -34,9 +34,8 @@ const useStyles = createUseStyles(theme => ({ // color codes: https://www.colors
     spent: { backgroundColor: theme.success, border: [1, 'solid', theme.subtle], boxSizing: 'border-box' }
 }));
 
-const Entry = ({ project, issue, activity, hours, comments, disabled, onSelect }) => {
+const Entry = ({ project, issue, activity, hours, comments, baseUrl, disabled, onSelect }) => {
     const classes = useStyles();
-    const { url } = useSettings();
     return <div className={classes.entry}>
         <div className={classes.hours}>
             <svg height="50" width="50">
@@ -48,16 +47,16 @@ const Entry = ({ project, issue, activity, hours, comments, disabled, onSelect }
         </div>
         <label className={classes.activity}>{activity.name}</label>
         <label className={classes.project}>{project.name}</label>
-        {issue && <label className={classes.issue}> <a tabIndex="-1" href={`${url}/projects/${issue.id}`} target={'_blank'}>#{issue.id}</a> {issue.subject}</label>}
+        {issue && <label className={classes.issue}> <a tabIndex="-1" href={`${baseUrl}/projects/${issue.id}`} target={'_blank'}>#{issue.id}</a> {issue.subject}</label>}
         <div className={classes.comments}>{comments}</div>
     </div>
 };
 
-export const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
+export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, onSelectEntry }) => {
     const classes = useStyles();
     const refs = useRef({ list: undefined });
 
-    const { hours: [start, end] } = useSettings();
+    const [start, end] = workHours || [8, 16];
     const sum = end - start;
     const reported = useMemo(() => entries.reduce((hours, entry) => hours + entry.hours || 0, 0), [entries]);
     const ellapsed = useMemo(() => {
@@ -85,7 +84,7 @@ export const Day = ({ day, entries, selected, onSelectDay, onSelectEntry }) => {
             </div>
         </div>
         <animated.div ref={ref => refs.current.list = ref} style={{ height, overflow: 'hidden' }}>
-            {entries.map(entry => <Entry key={entry.id} {...entry} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
+            {entries.map(entry => <Entry key={entry.id} {...entry} baseUrl={baseUrl} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
         </animated.div>
     </>
 };

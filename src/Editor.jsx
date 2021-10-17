@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { createUseStyles } from 'react-jss';
-import { useDrag } from 'react-use-gesture';
+import { useDrag } from '@use-gesture/react';
 import { useSpring, animated, config } from 'react-spring';
 import { Select } from './atoms/Select.jsx';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { database, useAsyncEffect, useSettings, useListen } from './storage.js';
+import { useAsyncEffect, useListen } from './storage.js';
 import { Textarea } from './atoms/Textarea.jsx';
 
 const useStyles = createUseStyles(theme => ({
@@ -14,7 +14,7 @@ const useStyles = createUseStyles(theme => ({
     },
     title: {
         display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.dark, color: theme.textSoft, fontWeight: 'bold',
-        userSelect: 'none', cursor: 'grab',
+        userSelect: 'none', touchAction: 'none', cursor: 'grab',
         '&:active': { cursor: 'grabbing' },
     },
     fields: {
@@ -31,24 +31,22 @@ const useStyles = createUseStyles(theme => ({
     }
 }));
 
-export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete }) => {
+export const Editor = ({ entry: init, lists: [projects, issues, activities], baseUrl, onSubmit, onDuplicate, onDismiss, onDelete }) => {
     const classes = useStyles();
-    const { url, refresh } = useSettings();
     const refs = useRef({ issue: undefined });
-    const [{ projects, issues, activities }, setValues] = useState({ projects: [], issues: [], activities: [] });
     const [minimized, setMinimized] = useState(false);
     const [entry, setEntry] = useState();
     const { id, project, issue, activity, hours, comments, spent_on } = entry || {};
     const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }));
 
     const propsTitle = {
-        ...useDrag(({ down, movement: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, initial: () => [0, y.get()] })()
+        ...useDrag(({ down, offset: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, from: () => [0, y.get()] })()
     };
     const propsProject = {
         placeholder: 'Project', value: project, values: projects,
         render: item => <div title={item.description}>{item.name}</div>,
         stringlify: item => item.id,
-        linkify: item => `${url}/projects/${item.id}`,
+        linkify: item => `${baseUrl}/projects/${item.id}`,
         filter: filter => item => filter.test(item.name),
         onChange: project => setEntry(entry => ({ ...entry, project, issue: undefined }))
     };
@@ -56,7 +54,7 @@ export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete
         placeholder: 'Issue', value: issue, values: issues,
         render: (item, short) => short ? (item.closed_on ? <strike>#{item.id} {item.subject}</strike> : <div>#{item.id} {item.subject}</div>) : <div title={item.description}>#{item.id} {item.project.name}<br />{item.subject}</div>,
         stringlify: item => item.id,
-        linkify: item => `${url}/issues/${item.id}`,
+        linkify: item => `${baseUrl}/issues/${item.id}`,
         filter: filter => item => filter.test(item.subject) || filter.test(item.id),
         onChange: issue => setEntry(entry => ({ ...entry, issue, project: issue?.project || entry?.project })),
         onMount: innerRefs => refs.current.issue = innerRefs.current.input
@@ -96,13 +94,6 @@ export const Editor = ({ entry: init, onSubmit, onDuplicate, onDismiss, onDelete
         title: 'Delete', onClick: _ => onDelete({ id })
     }
 
-    useAsyncEffect(async ({ aborted }) => { // load projects/issues/activities after load
-        const projects = await database.table('projects').toArray();
-        const issues = await database.table('issues').reverse().toArray();
-        const activities = await database.table('activities').orderBy('name').toArray();
-        if (aborted) return;
-        setValues({ projects, issues, activities });
-    }, [refresh]);
     useAsyncEffect(async ({ aborted }) => { // animation and autofocus on entry change
         await Promise.all(setSpring.start({ y: -400 }));
         if (aborted) return;

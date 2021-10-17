@@ -1,16 +1,4 @@
 import { useEffect, createContext, useContext } from 'react';
-import Dexie from 'dexie';
-
-export const database = new Dexie('redmine-cache');
-database.version(1).stores({
-    projects: '++, &id, updated_on',
-    issues: '&id, updated_on',
-    activities: '&id, name',
-    entries: '&id, spent_on, updated_on', // order: updated_on <desc>
-    tasks: '++id',
-    logs: '++'
-});
-database.open();
 
 export const storage = {
     get: (keys) => new Promise((resolve, reject) => chrome.storage.local.get(keys, (items) => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(items))),

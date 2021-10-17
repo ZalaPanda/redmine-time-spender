@@ -3,16 +3,15 @@ import { secretbox, randomBytes } from 'tweetnacl';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-const createNonce = () => randomBytes(secretbox.nonceLength);
-
+export const createNonce = () => randomBytes(secretbox.nonceLength);
 export const createKey = () => randomBytes(secretbox.keyLength);
 
-export const createCrypto = (key) => ({
+export const createCryptoApi = (key) => {
     /**
      * @param {value} any
      * @returns {Uint8Array}
      * */
-     encrypt: (value) => {
+    const encrypt = (value) => {
         const nonce = createNonce();
         const raw = encoder.encode(JSON.stringify(value));
         const box = secretbox(raw, nonce, key);
@@ -20,24 +19,19 @@ export const createCrypto = (key) => ({
         nonceAndBox.set(nonce);
         nonceAndBox.set(box, nonce.length);
         return nonceAndBox;
-    },
+    }
     /**
      * @param {Uint8Array} nonceAndBox
      * @returns {any}
      * */
-    decrypt: (nonceAndBox) => {
+    const decrypt = (nonceAndBox) => {
         const nonce = nonceAndBox.slice(0, secretbox.nonceLength);
         const box = nonceAndBox.slice(secretbox.nonceLength);
         const raw = secretbox.open(box, nonce, key);
         const value = raw && JSON.parse(decoder.decode(raw));
         return value;
     }
-});
-
-export const useCrypto = () => {
-    const [key, setKey] = useState();
-    const crypto = useMemo(() => key && createCrypto(key), [key]);
-    return [crypto, setKey];
+    return { encrypt, decrypt }
 };
 
 // const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));

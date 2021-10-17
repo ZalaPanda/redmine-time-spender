@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useGesture } from 'react-use-gesture';
+import { useGesture } from '@use-gesture/react';
 import { createUseStyles } from 'react-jss';
 import { FiChevronDown, FiChevronsDown, FiExternalLink, FiX } from 'react-icons/fi';
 
