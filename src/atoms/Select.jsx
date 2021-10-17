@@ -11,6 +11,7 @@ const useStyles = createUseStyles(theme => ({
             position: 'absolute', display: 'flex', alignItems: 'center', pointerEvents: 'none',
             width: '100%', height: '100%', margin: 1, padding: 4, boxSizing: 'border-box',
             '&>div': { flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+            '&>a': { pointerEvents: 'auto' },
             '&>svg': { flexShrink: 0, pointerEvents: 'auto' },
         },
         '&>div': {
@@ -52,9 +53,6 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
         tabIndex: -1, // needed to detect focus/blur events
         className: classes.base,
         ...props
-    });
-    const propsLink = ({
-        onClick: () => chrome.tabs.create({ url }) // open in new tab
     });
     const propsClear = ({
         onClick: () => setValue() // clear current value
@@ -104,7 +102,7 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
     return <div {...propsBase}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
-            {url && <FiExternalLink {...propsLink} />}
+            {url && <a href={url} target={'_blank'}><FiExternalLink /></a>}
             {current && <FiX {...propsClear} />}
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
