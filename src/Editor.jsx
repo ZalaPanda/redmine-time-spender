@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { createUseStyles } from 'react-jss';
 import { useDrag } from '@use-gesture/react';
-import { useSpring, animated, config } from 'react-spring';
+import { useSpring, animated, config } from '@react-spring/web';
 import { Select } from './atoms/Select.jsx';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { useAsyncEffect, useListen } from './storage.js';
+import { useAsyncEffect, useListen } from './uses.js';
 import { Textarea } from './atoms/Textarea.jsx';
 
 const useStyles = createUseStyles(theme => ({

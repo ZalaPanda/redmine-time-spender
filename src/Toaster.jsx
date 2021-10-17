@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createUseStyles } from 'react-jss';
 import { FiX } from 'react-icons/fi';
-import { useTransition, animated, config } from 'react-spring';
-import { useListen } from './storage.js';
+import { useTransition, animated, config } from '@react-spring/web';
+import { useListen } from './uses.js';
 
 const useStyles = createUseStyles(theme => ({
     base: {

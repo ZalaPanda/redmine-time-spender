@@ -1,8 +1,8 @@
 import React, { useRef } from 'react';
 import { createUseStyles } from 'react-jss';
 import { FiLock, FiServer, FiX } from 'react-icons/fi';
-import { storage, useAsyncEffect, useRaise, useSettings } from './storage.js';
-import { useSpring, animated, config } from 'react-spring';
+import { useAsyncEffect } from './uses.js';
+import { useSpring, animated, config } from '@react-spring/web';
 import { Checkbox } from './atoms/Checkbox.jsx';
 
 const useStyles = createUseStyles(theme => ({
@@ -17,107 +17,74 @@ const useStyles = createUseStyles(theme => ({
         '&>div': {
             display: 'flex', alignItems: 'center',
             '&>label': { color: theme.textSoft, minWidth: 80 },
-            '&>input': { flexGrow: 1, flexShrink: 1, minWidth: 20 }
+            '&>input': { flexGrow: 1, flexShrink: 1, minWidth: 20 },
+            '&[hidden]': { display: 'none' }
         },
         '&>div:focus-within': {
             '&>label': { color: theme.text }, // label with svg icon
         },
-        '&>hr': { margin: [0, 10, 0, 30], border: 0, borderBottom: [1, 'solid', theme.border] },
-        '&>button': { backgroundColor: theme.special }
+        '&>hr': { margin: 4, border: 0, borderBottom: [1, 'solid', theme.border] }
     }
 }));
 
-export const Config = ({ settings, onRefresh, onDismiss }) => {
+/** @param {{ settings: Settings }} */
+export const Config = ({ settings, onChange, onSetup, onReset, onDismiss }) => {
     const classes = useStyles();
-    const refs = useRef({ dismiss: undefined, url: undefined, key: undefined, button: undefined })
-    const raiseError = useRaise('error');
+    const refs = useRef({ dismissButton: undefined, baseUrlInput: undefined, apiKeyInput: undefined })
 
-    const { url, key, numberOfDays = 7, workHours = [8, 16], spacing = 1.6, skipAnimation = false } = settings;
+    const { redmine: { baseUrl } = {}, theme: { isDark, lineHeight } = {}, numberOfDays, workHours: [workHoursStart, workHoursEnd], skipAnimation } = settings;
     const [{ x }, setSpring] = useSpring(() => ({ x: -600, config: config.stiff, immediate: true }));
-    const sum = workHours[1] - workHours[0];
 
     const propsDismiss = {
-        ref: ref => refs.current.dismiss = ref,
+        ref: ref => refs.current.dismissButton = ref,
         onClick: async () => {
-            await Promise.all(setSpring.start({ x: -600 }));
+            await Promise.all(setSpring.start({ x: -600 })); // animation before dismiss
             onDismiss();
         }
     };
-    const propsUrl = {
-        defaultValue: url, disabled: !!url, ref: ref => refs.current.url = ref, placeholder: 'Redmine URL',
+    const propsBaseUrl = {
+        ref: ref => refs.current.baseUrlInput = ref, placeholder: 'Redmine URL', defaultValue: baseUrl, disabled: !!baseUrl,
         onFocus: event => event.target.select()
     };
-    const propsKey = {
-        defaultValue: key, disabled: !!key, ref: ref => refs.current.key = ref, placeholder: 'API key', type: 'password',
+    const propsApiKey = {
+        ref: ref => refs.current.apiKeyInput = ref, placeholder: 'API key', type: 'password', disabled: !!baseUrl,
         onFocus: event => event.target.select()
     };
-    const propsSave = {
-        ref: ref => refs.current.button = ref,
-        onClick: () => {
-            const reset = async () => {
-                await Promise.all([ // purge data
-                    // database.table('projects').clear(),
-                    // database.table('issues').clear(),
-                    // database.table('activities').clear(),
-                    // database.table('entries').clear(),
-                    // database.table('tasks').clear()
-                ]);
-                await storage.set({ url: undefined, key: undefined });
-            };
-            const check = async () => {
-                const url = refs.current.url.value;
-                try {
-                    const req = await fetch(url, { method: 'HEAD' });
-                    if (!req.ok) throw req.statusText;
-                } catch (error) {
-                    raiseError(error);
-                    refs.current.url.select();
-                    return;
-                }
-                const key = refs.current.key.value;
-                try {
-                    const req = await fetch(`${url}/my/account.json`, { headers: { 'X-Redmine-API-Key': key } });
-                    if (!req.ok) throw req.statusText;
-                } catch (error) {
-                    raiseError(error);
-                    refs.current.key.select();
-                    return;
-                }
-                await storage.set({ url, key });
-                onRefresh();
-                // chrome.runtime.sendMessage({ type: 'refresh' }, (results) => {
-                //     results.find(res => res) && reload({});
-                //     refs.current.refresh.disabled = false;
-                // });
-            };
-            url && key && reset() || check();
-        }
+    const propsReset = {
+        onClick: _ => onReset(baseUrl)
+    }
+    const propsSetup = {
+        onClick: _ => onSetup(refs.current.baseUrlInput.value.replace(/\/+$/, ''), refs.current.apiKeyInput.value)
+    }
+    const propsNumberOfDays = {
+        defaultValue: numberOfDays, type: 'number', step: 1, min: 0, max: 28,
+        onChange: event => onChange({ numberOfDays: Number(event.target.value) || numberOfDays })
     };
-    const propsSpacing = (value) => ({
-        value, checked: spacing === value,
-        onChange: async (spacing) => {
-            try {
-                await storage.set({ spacing });
-            } catch (error) {
-                raiseError(error);
-            }
-        }
+    const propsWorkHoursStart = {
+        defaultValue: workHoursStart, type: 'number', step: 1, min: 0, max: workHoursEnd,
+        onChange: event => onChange({ workHours: [Number(event.target.value) || workHoursStart, workHoursEnd] })
+    };
+    const propsWorkHoursEnd = {
+        defaultValue: workHoursEnd, type: 'number', step: 1, min: workHoursStart, max: 24,
+        onChange: event => onChange({ workHours: [workHoursStart, Number(event.target.value) || workHoursEnd] })
+    };
+    const propsThemeIsDarkRadio = (value) => ({
+        value, checked: isDark === value,
+        onChange: isDark => onChange({ theme: { isDark, lineHeight } })
+    })
+    const propsLineHeightRadio = (value) => ({
+        value, checked: lineHeight === value,
+        onChange: lineHeight => onChange({ theme: { isDark, lineHeight } })
     });
     const propsSkipAnimation = {
         checked: skipAnimation,
-        onChange: async (skipAnimation) => {
-            try {
-                await storage.set({ skipAnimation });
-            } catch (error) {
-                raiseError(error);
-            }
-        }
+        onChange: skipAnimation => onChange({ skipAnimation })
     };
 
-    useAsyncEffect(async ({ aborted }) => { // load projects/issues/activities after load
+    useAsyncEffect(async ({ aborted }) => { // animation after load
         await Promise.all(setSpring.start({ x: 0 }));
         if (aborted) return;
-        refs.current.dismiss.focus();
+        refs.current.dismissButton.focus();
     }, []);
     return <animated.div className={classes.base} style={{ x }}>
         <div className={classes.title}>
@@ -125,22 +92,27 @@ export const Config = ({ settings, onRefresh, onDismiss }) => {
             <button {...propsDismiss}><FiX /></button>
         </div>
         <div className={classes.fields}>
-            <div><FiServer /><input {...propsUrl} /></div>
-            <div><FiLock /><input {...propsKey} /></div>
-            <button {...propsSave}>{(url && key) ? 'Reset' : 'Save'}</button>
+            <div><FiServer /><input {...propsBaseUrl} />{baseUrl && <button {...propsReset}>RESET</button>}</div>
+            <div hidden={!!baseUrl}><FiLock /><input {...propsApiKey} /></div>
+            {!baseUrl && <button {...propsSetup}>SETUP</button>}
             <hr />
             <div>
                 <label>Days:</label>
-                <input defaultValue={numberOfDays} type={'number'} step={1} min={0} max={28} />
+                <input {...propsNumberOfDays} />
                 <label>Hours:</label>
-                <input defaultValue={workHours[0]} type={'number'} step={0.5} min={0} max={24} />
-                <input defaultValue={workHours[1]} type={'number'} step={0.5} min={0} max={24} />
+                <input {...propsWorkHoursStart} />
+                <input {...propsWorkHoursEnd} />
+            </div>
+            <div>
+                <label>Theme:</label>
+                <Checkbox {...propsThemeIsDarkRadio(true)}>Dark</Checkbox>
+                <Checkbox {...propsThemeIsDarkRadio(false)}>Light</Checkbox>
             </div>
             <div>
                 <label>Design:</label>
-                <Checkbox {...propsSpacing(1.6)}>Wide</Checkbox>
-                <Checkbox {...propsSpacing(1.4)}>Normal</Checkbox>
-                <Checkbox {...propsSpacing(1.2)}>Compact</Checkbox>
+                <Checkbox {...propsLineHeightRadio(1.6)}>Wide</Checkbox>
+                <Checkbox {...propsLineHeightRadio(1.4)}>Normal</Checkbox>
+                <Checkbox {...propsLineHeightRadio(1.2)}>Compact</Checkbox>
             </div>
             <div>
                 <label>Misc:</label>

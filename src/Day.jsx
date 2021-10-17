@@ -1,9 +1,9 @@
 import React, { useMemo, useRef } from 'react';
-import { useSpring, animated } from 'react-spring';
+import { useSpring, animated } from '@react-spring/web';
 import { createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import { FiEdit } from 'react-icons/fi';
-import { useAsyncEffect } from './storage.js';
+import { useAsyncEffect } from './uses.js';
 
 const useStyles = createUseStyles(theme => ({ // color codes: https://www.colorsandfonts.com/color-system
     base: {

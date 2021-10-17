@@ -33,22 +33,22 @@ module.exports = (env, argv) => [{
         maxAssetSize: 600 * 1024, // default: 250 KB
         maxEntrypointSize: 1.2 * 1024 * 1024 // default: 250 KB
     },
-    // optimization: {
-    //     splitChunks: {
-    //         chunks: 'all',
-    //         maxInitialRequests: Infinity,
-    //         minSize: 0,
-    //         cacheGroups: {
-    //             vendor: {
-    //                 test: /[\\/]node_modules[\\/]/,
-    //                 name: module => {
-    //                     const expression = /[\\/]node_modules[\\/](.*?)([\\/]|$)/;
-    //                     while (expression.test(module.issuer.context)) module = module.issuer; // find top level issuer
-    //                     const name = module.context.match(expression)[1]; // ./node_modules/office-ui-fabric-react/lib/Dropdown -> office-ui-fabric-react
-    //                     return `module.${name.replace('@', '')}`; // result: "module.react.js"
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    optimization: {
+        splitChunks: {
+            chunks: 'all',
+            maxInitialRequests: Infinity,
+            minSize: 0,
+            cacheGroups: {
+                vendor: {
+                    test: /[\\/]node_modules[\\/]/,
+                    name: module => {
+                        const expression = /[\\/]node_modules[\\/](.*?)([\\/]|$)/;
+                        while (expression.test(module.issuer.context)) module = module.issuer; // find top level issuer
+                        const name = module.context.match(expression)[1]; // ./node_modules/office-ui-fabric-react/lib/Dropdown -> office-ui-fabric-react
+                        return `module.${name.replace('@', '')}`; // result: "module.react.js"
+                    }
+                }
+            }
+        }
+    }
 }];

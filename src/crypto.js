@@ -3,9 +3,17 @@ import { secretbox, randomBytes } from 'tweetnacl';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+export const convertHexToBin = hex => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+export const convertBinToHex = bin => bin.reduce((hex, byte) => hex + byte.toString(16).padStart(2, '0'), '');
+
 export const createNonce = () => randomBytes(secretbox.nonceLength);
 export const createKey = () => randomBytes(secretbox.keyLength);
 
+/**
+ * Create Crypto API with encryption key
+ * @param {Uint8Array} key 
+ * @returns {CryptoAPI}
+ */
 export const createCryptoApi = (key) => {
     /**
      * @param {value} any
@@ -33,29 +41,3 @@ export const createCryptoApi = (key) => {
     }
     return { encrypt, decrypt }
 };
-
-// const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-// const toHexString = bytes => bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
-
-// const cookieName = '_redmine_time_spender';
-// export const cookieKey = (url) => ({
-//     get: _ => new Promise((resolve, reject) => chrome.cookies.get({
-//         name: cookieName, url
-//     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(fromHexString(cookie.value)))),
-//     set: _ => new Promise((resolve, reject) => chrome.cookies.set({
-//         name: cookieName, value: toHexString(genKey()), url, httpOnly: true, secure: true, expirationDate: 2147483647
-//     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(fromHexString(cookie.value))))
-// });
-
-// export const encryptItems = (key, schema, items) => {
-//     const keys = [schema.primKey?.name, ...schema.indexes?.map(index => index.name)].filter(key => key);
-//     return items.map(item => ({
-//         ...Object.fromEntries(Object.entries(item).filter(([key]) => keys.includes(key))), // keys
-//         _data: encrypt(key, Object.fromEntries(Object.entries(item).filter(([key]) => !keys.includes(key)))) // rest
-//     }));
-// }
-
-// export const decryptItems = (key, items) => items.map(({ _data, ...keys }) => ({
-//     ...keys,
-//     ...decrypt(key, _data)
-// }));

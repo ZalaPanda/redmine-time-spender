@@ -10,12 +10,17 @@ const databaseSchema = {
 };
 const secretKey = '_data';
 
+/**
+ * Create Dexie database with encryption
+ * @param {CryptoAPI} crypto 
+ * @returns {Dexie.Database}
+ */
 export const createEntryptedDatabase = (crypto) => {
     const database = new Dexie(databaseName);
     database.version(1).stores(databaseSchema);
     return database.use({ // https://dexie.org/docs/Dexie/Dexie.use()
         stack: 'dbcore',
-        name: 'encrypt',
+        name: 'crypto',
         create: (down) => ({
             ...down,
             table: name => {
@@ -67,9 +72,10 @@ export const createEntryptedDatabase = (crypto) => {
                         return values.map(decrypt);
                     },
                     query: async req => {
-                        const res = await table.query(req);
                         const { values } = req;
-                        return { ...res, result: values && res.result.map(decrypt) };
+                        const res = await table.query(req);
+                        const { result } = res;
+                        return { ...res, result: values && result.map(decrypt) || result };
                     },
                     mutate: async req => {
                         const { values } = req;

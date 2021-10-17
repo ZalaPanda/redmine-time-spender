@@ -33,13 +33,21 @@ TODO
 ====
 * [x] fix background refresh
 * [x] reload on force refresh
-* [ ] check background script module support
+* [x] check background script module support
 * [x] task features done: color/update/delete
 * [ ] task features left: stopper?/notes?
 * [x] animation on day select
-* [ ] save new entry on popup close and continue next time
-* [ ] options page
+* [x] save new entry on popup close and continue next time
+* [x] options page
 * [ ] favorite projects/issues/activities
+
+Next steps
+==========
+* check cookie permission request/revoke
+* fix dark theme
+* create light theme
+* generate lorem ipsum sample data for screenshots
+* publish 🍰
 
 Color: [chroma](https://gka.github.io/chroma.js) [GitHub](https://github.com/gka/chroma.js)
 Theme generator: [CSS Color Theme Generator by Numl.Design](https://theme.numl.design/)

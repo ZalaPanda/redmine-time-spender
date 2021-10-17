@@ -1,3 +1,9 @@
+/**
+ * Create Redmine API with base URL and API key
+ * @param {string} baseUrl 
+ * @param {string} apiKey 
+ * @returns {RedmineAPI}
+ */
 export const createRedmineApi = (baseUrl, apiKey) => {
     const fetchRedmine = async (path, method, body) => {
         const response = await fetch(baseUrl.concat(path), {
@@ -57,6 +63,9 @@ export const createRedmineApi = (baseUrl, apiKey) => {
         const { time_entry_activities: activities } = await response.json();
         return activities.map(({ id, name, active }) => ({ id, name, active }));
     };
+    const getUser = async () => {
+        return await fetchRedmine('/my/account.json');
+    }
     /** [API:Rest_TimeEntries](https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry) */
     const createEntry = async (entry) => {
         const { project, issue, hours, activity, comments, spent_on } = entry;
@@ -86,5 +95,5 @@ export const createRedmineApi = (baseUrl, apiKey) => {
         const { id } = entry;
         return await fetchRedmine(`/time_entries/${id}.json`, 'DELETE');
     };
-    return { getEntries, getProjects, getIssues, getActivities, createEntry, updateEntry, deleteEntry };
+    return { getEntries, getProjects, getIssues, getActivities, getUser, createEntry, updateEntry, deleteEntry };
 };

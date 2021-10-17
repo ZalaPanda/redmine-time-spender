@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Globals } from 'react-spring';
+import { Globals } from '@react-spring/web';
 import { ThemeProvider, createUseStyles } from 'react-jss';
 import { FiRefreshCw, FiClock, FiSettings } from 'react-icons/fi';
 
-import { storage, useAsyncEffect, useRaise, useListen } from './storage.js';
 import { themes } from './themes.js';
-import { createKey, createCryptoApi } from './crypto.js';
+import { createKey, createCryptoApi, convertHexToBin, convertBinToHex } from './crypto.js';
 import { createRedmineApi } from './redmine.js';
 import { createEntryptedDatabase } from './database.js';
+import { useAsyncEffect, useRaise } from './uses.js';
 
 import dayjs from 'dayjs';
 
@@ -56,7 +56,7 @@ const useGlobalStyles = createUseStyles({
 
 const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     '@global': {
-        '*': { lineHeight: theme.spacing },
+        '*': { lineHeight: theme.lineHeight },
         'a': { color: theme.special, '&:visited': { color: theme.special } },
         'html': { backgroundColor: theme.bg, color: theme.text },
         'input, textarea, button': { color: theme.text },
@@ -72,6 +72,13 @@ const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     base: { display: 'flex', '&>input': { flexGrow: 1 } }
 }));
 
+const storage = {
+    get: keys => new Promise((resolve, reject) => chrome.storage.local.get(keys, items => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(items))),
+    set: items => new Promise((resolve, reject) => chrome.storage.local.set(items, _ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve())),
+    remove: keys => new Promise((resolve, reject) => chrome.storage.local.remove(keys, _ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve())),
+    clear: _ => new Promise((resolve, reject) => chrome.storage.local.clear(_ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve()))
+};
+
 const cookieName = '_redmine_time_spender';
 const cookie = (url) => ({
     get: _ => new Promise((resolve, reject) => chrome.cookies.get({
@@ -79,30 +86,51 @@ const cookie = (url) => ({
     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
     set: value => new Promise((resolve, reject) => chrome.cookies.set({
         name: cookieName, value, url, httpOnly: true, secure: true, expirationDate: 2147483647
-    }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie)))
+    }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
+    remove: _ => new Promise((resolve, reject) => chrome.cookies.remove({
+        name: cookieName, url
+    }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
+    permission: {
+        request: _ => new Promise((resolve, reject) => chrome.permissions.request({
+            permissions: ['cookies'], origins: [url]
+        }, granted => granted ? resolve() : reject('Request denied!'))),
+        remove: _ => new Promise((resolve, reject) => chrome.permissions.remove({
+            permissions: ['cookies'], origins: [url]
+        }, removed => removed ? resolve() : reject('Remove denied?!')))
+    }
 });
 
-const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-const toHexString = bytes => bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+/** @type {Settings} */
+const defaultSettings = {
+    redmine: undefined,
+    theme: { isDark: true, lineHeight: 1.6 },
+    numberOfDays: 7,
+    workHours: [8, 16],
+    skipAnimation: false
+};
 
 const App = () => {
     useGlobalStyles();
 
+    const refs = useRef({ addEntryButton: undefined, addTaskInput: undefined, refreshButton: undefined, configButton: undefined });
+    const raiseError = useRaise('error');
+
     /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
     const [settings, setSettings] = useState();
-    useAsyncEffect(async ({ aborted }) => { // load settings from local storage.
+    useAsyncEffect(async ({ aborted }) => { // load settings from local storage
         const settings = await storage.get();
         if (aborted) return;
-        setSettings({ ...settings });
+        setSettings({ ...defaultSettings, ...settings });
+        setConfig(!settings?.redmine); // open config dialog
     }, []);
 
     /** @type {[Theme, React.Dispatch<(prevState: Theme) => Theme>]} */
     const [theme, setTheme] = useState({ ...themes['dark'], lineHeight: 1.6 });
     const classes = useThemedStyles({ theme });
 
-    useEffect(() => { // theme update
+    useEffect(() => { // update theme
         if (!settings?.theme) return;
-        const { theme: { isDark = true, lineHeight = 1.6 } } = settings;
+        const { theme: { isDark, lineHeight } } = settings;
         setTheme({ ...themes[isDark ? 'dark' : 'light'], lineHeight })
     }, [settings?.theme]);
 
@@ -112,103 +140,15 @@ const App = () => {
         Globals.assign({ skipAnimation });
     }, [settings?.skipAnimation]);
 
-    const [config, setConfig] = useState(false); // config shown/hidden
-    const [redmine, setRedmine] = useState();
-    const [database, setDatabase] = useState();
-    useAsyncEffect(async ({ aborted }) => { // init crypto
-        if (!settings) return;
-        if (!settings?.redmine) return setConfig(true); // show config
-        const { redmine: { baseUrl, encodedKey } } = settings;
-        const { value: cryptoKey } = await cookie(baseUrl).get();
-        const crypto = createCryptoApi(fromHexString(cryptoKey));
-        const apiKey = crypto.decrypt(fromHexString(encodedKey));
-        const redmine = createRedmineApi(baseUrl, apiKey);
-        if (aborted) return;
+    const [config, setConfig] = useState(false); // config dialog shown/hidden
+    /** @type {[RedmineAPI, React.Dispatch<(prevState: RedmineAPI) => RedmineAPI>]} */
+    const [redmine, setRedmine] = useState(); // Redmine API
+    /** @type {[Dexie.Database, React.Dispatch<(prevState: Dexie.Database) => Dexie.Database>]} */
+    const [database, setDatabase] = useState(); // IndexedDb API
 
-        const database = createEntryptedDatabase(crypto);
-        // const database = new Dexie('redmine-cache');
-        // database.version(1).stores({
-        //     projects: '++, &id, updated_on',
-        //     issues: '&id, updated_on',
-        //     activities: '&id, active',
-        //     entries: '&id, spent_on, updated_on', // order: updated_on <desc>
-        //     tasks: '++id',
-        //     logs: '++'
-        // });
-
-        // /* Dexie table encryption */
-        // database.tables.map(table => { // TODO: change to Dexie 3 - https://dexie.org/docs/DBCore/DBCoreTable
-        //     const { schema: { primKey, indexes } } = table;
-        //     const encryptedDataKey = '_data';
-        //     const notEncryptedKeys = [primKey?.name, ...indexes?.map(index => index.name)].filter(name => name);
-        //     // API: https://dexie.org/docs/Table/Table.hook('creating')
-        //     table.hook('creating', (_, item) => {
-        //         const rest = Object.fromEntries(
-        //             Object.entries(item).filter(([key]) => !notEncryptedKeys.includes(key) && delete item[key])); // !!delete === true (wow!)
-        //         item[encryptedDataKey] = crypto.encrypt(rest);
-        //     });
-        //     // API: https://dexie.org/docs/Table/Table.hook('updating')
-        //     table.hook('updating', (modifications, _, item) => {
-        //         if (!Object.keys(modifications).find(key => !notEncryptedKeys.includes(key))) return; // only keys updated
-        //         const encryptedDataValue = item[encryptedDataKey];
-        //         const updated = { ...item, ...encryptedDataValue && crypto.decrypt(encryptedDataValue), ...modifications };
-        //         const keys = Object.fromEntries(
-        //             Object.entries(modifications).filter(([key]) => notEncryptedKeys.includes(key)));
-        //         const rest = Object.fromEntries(
-        //             Object.entries(updated).filter(([key]) => key !== encryptedDataKey && !notEncryptedKeys.includes(key)));
-        //         return { ...keys, [encryptedDataKey]: crypto.encrypt(rest) };
-        //     });
-        //     // API: https://dexie.org/docs/Table/Table.hook('reading')
-        //     table.hook('reading', (item) => {
-        //         if (!item.hasOwnProperty(encryptedDataKey)) return item;
-        //         const encryptedDataValue = item[encryptedDataKey];
-        //         const rest = Object.fromEntries(
-        //             Object.entries(item).filter(([key]) => key !== encryptedDataKey));
-        //         return { ...rest, ...encryptedDataValue && crypto.decrypt(encryptedDataValue) };
-        //     });
-        // });
-        await database.open();
-
-        setDatabase(database);
-        setRedmine(redmine);
-    }, [settings?.redmine]);
-
-    const loadTasks = async ({ aborted }) => {
-        if (!database) return;
-        // const tasks = await database.table('tasks').toArray();
-        const tasks = await database.table('tasks').reverse().toArray();
-        if (aborted) return;
-        setTasks(tasks);
-    };
-    useAsyncEffect(loadTasks, [database]);
-
-    const loadEntries = async ({ aborted }) => {
-        if (!database) return;
-        const entries = await database.table('entries').reverse().toArray();
-        const issueIdsInEntries = [...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))];
-        const issues = await database.table('issues').where('id').anyOf(issueIdsInEntries).toArray();
-        if (aborted) return;
-        setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
-    };
-    useAsyncEffect(loadEntries, [database]);
-
-    const loadLists = async ({ aborted }) => { // load projects/issues/activities after load
-        if (!database) return;
-        const projects = await database.table('projects').toArray();
-        const issues = await database.table('issues').reverse().toArray();
-        const unsortedActivities = await database.table('activities').toArray();
-        const activities = unsortedActivities.sort((a, b) => a.name.localeCompare(b.name));
-        if (aborted) return;
-        setLists([projects, issues, activities]);
-    };
-    useAsyncEffect(loadLists, [database]);
-
-    const refs = useRef({ addEntryButton: undefined, addTaskInput: undefined, refreshButton: undefined, configButton: undefined });
-    const raiseError = useRaise('error');
-
-    const [tasks, setTasks] = useState([]);
-    const [entries, setEntries] = useState([]);
-    const [lists, setLists] = useState([[], [], []]);
+    const [tasks, setTasks] = useState([]); // todo list items
+    const [entries, setEntries] = useState([]); // Redmine time entries
+    const [lists, setLists] = useState([[], [], []]); // projects, issues, activities
 
     const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
     const [today, setToday] = useState(days[0]);
@@ -216,6 +156,47 @@ const App = () => {
 
     const filteredTasks = useMemo(() => tasks.filter(({ closed_on }) => !closed_on || dayjs(today).isSame(closed_on, 'day')), [tasks, today]);
     const filteredEntries = useMemo(() => entries.reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {}), [entries]);
+
+    useAsyncEffect(async ({ aborted }) => { // init redmine and database with cookie key
+        if (!settings?.redmine) return;
+        const { redmine: { baseUrl, encodedKey } } = settings;
+        const { value: cryptoKey } = await cookie(baseUrl).get();
+        const crypto = createCryptoApi(convertHexToBin(cryptoKey));
+        const apiKey = crypto.decrypt(convertHexToBin(encodedKey));
+        const redmine = createRedmineApi(baseUrl, apiKey);
+        const database = createEntryptedDatabase(crypto);
+        await database.open();
+        if (aborted) return;
+        setRedmine(redmine);
+        setDatabase(database);
+    }, [settings?.redmine]);
+
+    const loadTasks = async ({ aborted }) => {
+        const tasks = await database.table('tasks').reverse().toArray();
+        if (aborted) return;
+        setTasks(tasks);
+    };
+    const loadEntries = async ({ aborted }) => {
+        const entries = await database.table('entries').reverse().toArray();
+        const issueIdsInEntries = [...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))];
+        const issues = await database.table('issues').where('id').anyOf(issueIdsInEntries).toArray();
+        if (aborted) return;
+        setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
+    };
+    const loadLists = async ({ aborted }) => { // load projects/issues/activities after load
+        const projects = await database.table('projects').toArray();
+        const issues = await database.table('issues').reverse().toArray();
+        const unsortedActivities = await database.table('activities').toArray();
+        const activities = unsortedActivities.sort((a, b) => a.name.localeCompare(b.name));
+        if (aborted) return;
+        setLists([projects, issues, activities]);
+    };
+    useAsyncEffect(async ({ aborted }) => {
+        if (!database) return;
+        await loadTasks({ aborted });
+        await loadEntries({ aborted });
+        await loadLists({ aborted });
+    }, [database]);
 
     const refresh = async () => {
         const refreshEntries = async () => {
@@ -252,10 +233,8 @@ const App = () => {
                 refreshIssues(),
                 refreshActivities()
             ]);
-            debugger;
             if (changedEntries) loadEntries({});
-            // if (changedValues.find(value => value)) loadLists({});
-            loadLists({});
+            if (changedValues.find(value => value)) loadLists({});
         } catch (error) {
             raiseError(error);
         } finally {
@@ -295,20 +274,10 @@ const App = () => {
     const propsEditor = ({
         entry, lists, baseUrl: settings?.redmine?.baseUrl,
         onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
-            try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry
-                const { url, key } = settings;
-                const body = JSON.stringify({
-                    time_entry: {
-                        project_id: project?.id || null,
-                        issue_id: issue?.id || null,
-                        activity_id: activity?.id || null,
-                        hours, comments, spent_on
-                    }
-                });
+            try {
                 if (id) { // update
-                    const req = await fetch(`${url}/time_entries/${id}.json`, { headers: { 'Content-Type': 'application/json', 'X-Redmine-API-Key': key }, method: 'PUT', body });
-                    if (!req.ok) await throwRedmineError(req); // 204 No Content: time entry was updated
-                    const update = { // Prop `updated_on` not updated -> refresh by `background.js`
+                    await redmine.updateEntry({ id, project, issue, hours, activity, comments, spent_on }); // 204 No Content: time entry was updated
+                    const update = { // NOTE: `updated_on` not updated
                         ...project && { project: { id: project.id, name: project.name } },
                         ...issue && { issue: { id: issue.id } },
                         ...activity && { activity: { id: activity.id, name: activity.name } },
@@ -317,11 +286,10 @@ const App = () => {
                     await database.table('entries').update(id, update);
                     setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, issue } : entry));
                 } else { // create
-                    const req = await fetch(`${url}/time_entries.json`, { headers: { 'Content-Type': 'application/json', 'X-Redmine-API-Key': key }, method: 'POST', body });
-                    if (!req.ok) await throwRedmineError(req); // 201 Created: time entry was created
-                    const { time_entry: update } = await req.json();
-                    await database.table('entries').put(update);
-                    setEntries(entries => [{ ...update, issue }, ...entries]);
+                    const response = await redmine.createEntry({ project, issue, hours, activity, comments, spent_on });
+                    const { time_entry: entry } = await response.json();
+                    await database.table('entries').put(entry);
+                    setEntries(entries => [{ ...entry, issue }, ...entries]);
                 }
                 setEntry();
                 refs.current.addEntryButton.focus();
@@ -330,14 +298,12 @@ const App = () => {
             }
         },
         onDelete: async ({ id }) => {
-            try { // API: https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry
-                const { url, key } = settings;
-                const req = await fetch(`${url}/time_entries/${id}.json`, { headers: { 'X-Redmine-API-Key': key }, method: 'DELETE' });
-                if (!req.ok) await throwRedmineError(req);
+            try {
+                await redmine.deleteEntry({ id });
                 await database.table('entries').delete(id);
                 setEntries(entries => entries.filter(entry => entry.id !== id));
-                refs.current.addEntryButton.focus();
                 setEntry();
+                refs.current.addEntryButton.focus();
             } catch (error) {
                 raiseError(error);
             }
@@ -347,7 +313,47 @@ const App = () => {
     });
 
     const propsConfig = {
-        settings, onRefresh: refresh, onDismiss: () => setConfig(false)
+        settings,
+        onChange: async (changes) => {
+            try {
+                await storage.set(changes);
+                setSettings(settings => ({ ...settings, ...changes }));
+            } catch (error) {
+                raiseError(error);
+            }
+        },
+        onSetup: async (baseUrl, apiKey) => {
+            try {
+                const redmine = createRedmineApi(baseUrl, apiKey);
+                await redmine.getUser(); // check URL and API key
+                const cryptoKey = createKey(); // generate new crypto key
+                await cookie(baseUrl).permission.request(); // request permission to redmine cookies
+                await cookie(baseUrl).set(convertBinToHex(cryptoKey)); // save crypto key in cookie
+                const crypto = createCryptoApi(cryptoKey);
+                const encodedKey = convertBinToHex(crypto.encrypt(apiKey)); // encrypt API key
+                await storage.set({ redmine: { baseUrl, encodedKey } }); // save URL and encoded API key
+                setSettings(settings => ({ ...settings, redmine: { baseUrl, encodedKey } }));
+            } catch (error) {
+                raiseError(error);
+            }
+        },
+        onReset: async (baseUrl) => {
+            try {
+                await cookie(baseUrl).permission.remove();
+                Promise.all([ // purge everything from database
+                    database.table('projects').clear(),
+                    database.table('issues').clear(),
+                    database.table('activities').clear(),
+                    database.table('entries').clear(),
+                    database.table('tasks').clear() // TODO: transfer tasks?
+                ]);
+                await storage.remove('redmine');
+                setSettings(({ redmine, ...settings }) => settings);
+            } catch (error) {
+                raiseError(error);
+            }
+        },
+        onDismiss: () => setConfig(false)
     };
 
     const propsTask = (task) => ({
@@ -380,14 +386,7 @@ const App = () => {
 
     useEffect(() => refs.current.addEntryButton?.focus(), []); // focus on add entry button
 
-    const test = async () => {
-        const projects1 = await database.table('projects').where('id').anyOf([630, 631, 632]).toArray();
-        const projects2 = await database.table('projects').reverse().toArray();
-        const projects3 = await database.table('projects').toArray();
-        console.log(projects1, projects2, projects3);
-    }
-
-    if (!settings) return null;
+    // if (!settings) return null;
     return <ThemeProvider theme={theme}>
         <Editor {...propsEditor} />
         {config && <Config {...propsConfig} />}
@@ -397,7 +396,6 @@ const App = () => {
             <input {...propsAddTask} />
             <button {...propsRefreshButton}><FiRefreshCw /></button>
             <button {...propsConfigButton}><FiSettings /></button>
-            <button onClick={test}>FCK</button>
         </div>
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {days.map(day => <Day {...propsDay(day)} />)}

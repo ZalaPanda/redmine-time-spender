@@ -1,13 +1,4 @@
-import { useEffect, createContext, useContext } from 'react';
-
-export const storage = {
-    get: (keys) => new Promise((resolve, reject) => chrome.storage.local.get(keys, (items) => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(items))),
-    set: (items) => new Promise((resolve, reject) => chrome.storage.local.set(items, () => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve()))
-};
-
-const SettingsContext = createContext();
-export const SettingsProvider = SettingsContext.Provider;
-export const useSettings = () => useContext(SettingsContext);
+import { useEffect } from 'react';
 
 export const useRaise = (type) => (detail) => window.dispatchEvent(new CustomEvent(type, { detail }));
 export const useListen = (type, callback = (_detail) => { }) => useEffect(() => {
