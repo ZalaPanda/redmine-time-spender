@@ -102,7 +102,7 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
     return <div {...propsBase}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
-            {url && <a href={url} target={'_blank'}><FiExternalLink /></a>}
+            {url && <a href={url} target={'_blank'} tabIndex={0}><FiExternalLink /></a>}
             {current && <FiX {...propsClear} />}
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>

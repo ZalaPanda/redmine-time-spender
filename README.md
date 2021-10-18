@@ -1,12 +1,11 @@
-Notes
-=====
+redmine-time-spender
+====================
 
-Cant detect time enrty delete.
-Cant detect issue delete.
-
-**Full update is required?!** ATOM feed also not working.
-
-**Project** + **spent time** API missing date filter.
+Spend less time with Redmine tiome tracking.
+This Chrome extension helps to save time with:
+* no need to log into Redmine because every action is done with an API key
+* check the registered time entries with a click/keypress
+* duplicate or change a time entry with the speed of light
 
 API key
 -------
@@ -47,6 +46,7 @@ Next steps
 * fix dark theme
 * create light theme
 * generate lorem ipsum sample data for screenshots
+* add hotkey link to the config dialog
 * publish 🍰
 
 Color: [chroma](https://gka.github.io/chroma.js) [GitHub](https://github.com/gka/chroma.js)

@@ -7,7 +7,7 @@ export const themes = { // https://spectrum.adobe.com/page/color/
     },
     dark: {
         bg: '#202020', subtle: '#212528', input: '#1c1c1c', light: '#dae5f2', dark: '#2b3641', danger: '#9e2a2b', success: '#50AF4C',
-        text: '#eeeff1', textSoft: '#eeeff0', textStrong: '#bbbbbb',
+        text: '#eeeff1', textSoft: '#CACDD0', textStrong: '#bbbbbb',
         border: '#4b5158', special: '#8ab3d8', specialBg: '#3b5266', specialText: '#eeeff1',
         shadow: '#000000EE', mark: '#8ab3d829', specialMark: '#eeeff129'
     }

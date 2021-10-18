@@ -3,7 +3,7 @@
     "name": "Redmine Time Spender",
     "short_name": "RMTS",
     "description": "Time spent management in Redmine.",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "background": {
         "service_worker": "background.js"
     },
@@ -26,8 +26,11 @@
             }
         }
     },
+    "optional_permissions": [
+        "cookies"
+    ],
     "permissions": [
-        "storage", "cookies"
+        "storage"
     ],
     "host_permissions": [
         "https://*/*"
