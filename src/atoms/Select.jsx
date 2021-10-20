@@ -11,9 +11,10 @@ const useStyles = createUseStyles(theme => ({
             position: 'absolute', display: 'flex', alignItems: 'center', pointerEvents: 'none',
             width: '100%', height: '100%', margin: 1, padding: 4, boxSizing: 'border-box',
             '&>div': { flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-            '&>a': { pointerEvents: 'auto' },
             '&>svg': { flexShrink: 0, pointerEvents: 'auto' },
+            '&>a': { display: 'none', pointerEvents: 'auto' }
         },
+        '&:hover>label>a': { display: 'unset' },
         '&>div': {
             position: 'absolute', zIndex: 1,
             width: '100%', maxHeight: 200, padding: 0, margin: 0, boxSizing: 'border-box',
@@ -102,8 +103,8 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
     return <div {...propsBase}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
-            {url && <a href={url} target={'_blank'} tabIndex={0}><FiExternalLink /></a>}
-            {current && <FiX {...propsClear} />}
+            {url && <a href={url} target={'_blank'} tabIndex={-1}><FiExternalLink /></a>}
+            {current && <a tabIndex={-1}><FiX {...propsClear} /></a>}
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
         <input {...propsInput} />
