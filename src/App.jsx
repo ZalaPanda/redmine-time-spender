@@ -28,7 +28,7 @@ const useGlobalStyles = createUseStyles({
     }],
     '@global': {
         '*': { fontSize: 16, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
-        'a': { fontWeight: 'bold' },
+        'a': { fontWeight: 'bold', color: 'unset', '&:visited': { color: 'unset' } },
         'svg': { margin: 2, verticalAlign: 'middle', strokeWidth: 2.5 },
         'html': { scrollBehavior: 'smooth' },
         'body': { width: 460, minHeight: 300, margin: 10 },
@@ -44,7 +44,7 @@ const useGlobalStyles = createUseStyles({
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
-        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', 'unset'] },
+        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', 'currentcolor'] },
         '::-webkit-scrollbar-corner': { backgroundColor: 'transparent' },
         '::-webkit-resizer': { backgroundColor: 'transparent' },
         // [number input] remove inc/dec buttons
@@ -57,7 +57,6 @@ const useGlobalStyles = createUseStyles({
 const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     '@global': {
         '*': { lineHeight: theme.lineHeight },
-        'a': { color: theme.special, '&:visited': { color: theme.special } },
         'html': { backgroundColor: theme.bg, color: theme.text },
         'input, textarea, button': { color: theme.text },
         'button': {
@@ -92,11 +91,14 @@ const cookie = (url) => ({
     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
     permission: {
         request: _ => new Promise((resolve, reject) => chrome.permissions.request({
-            permissions: ['cookies'], origins: [url]
+            permissions: ['cookies'], origins: [new URL(url).href]
         }, granted => granted ? resolve() : reject('Request denied!'))),
-        remove: _ => new Promise((resolve, reject) => chrome.permissions.remove({
-            permissions: ['cookies'], origins: [url]
-        }, removed => removed ? resolve() : reject('Remove denied?!')))
+        contains: _ => new Promise((resolve) => chrome.permissions.contains({
+            permissions: ['cookies'], origins: [new URL(url).href]
+        }, resolve)),
+        remove: _ => new Promise((resolve) => chrome.permissions.remove({
+            permissions: ['cookies'], origins: [new URL(url).href]
+        }, resolve))
     }
 });
 
@@ -324,10 +326,11 @@ const App = () => {
         },
         onSetup: async (baseUrl, apiKey) => {
             try {
+                const result = await cookie(baseUrl).permission.contains(); // check permission to redmine cookies
+                if (!result) await cookie(baseUrl).permission.request(); // request permission
                 const redmine = createRedmineApi(baseUrl, apiKey);
                 await redmine.getUser(); // check URL and API key
                 const cryptoKey = createKey(); // generate new crypto key
-                await cookie(baseUrl).permission.request(); // request permission to redmine cookies
                 await cookie(baseUrl).set(convertBinToHex(cryptoKey)); // save crypto key in cookie
                 const crypto = createCryptoApi(cryptoKey);
                 const encodedKey = convertBinToHex(crypto.encrypt(apiKey)); // encrypt API key
@@ -339,8 +342,8 @@ const App = () => {
         },
         onReset: async (baseUrl) => {
             try {
-                await cookie(baseUrl).permission.remove();
-                Promise.all([ // purge everything from database
+                await cookie(baseUrl).permission.remove(); // remove permission to redmine cookies
+                database && Promise.all([ // purge everything from database
                     database.table('projects').clear(),
                     database.table('issues').clear(),
                     database.table('activities').clear(),

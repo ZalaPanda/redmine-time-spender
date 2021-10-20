@@ -50,11 +50,17 @@ export const Config = ({ settings, onChange, onSetup, onReset, onDismiss }) => {
         ref: ref => refs.current.apiKeyInput = ref, placeholder: 'API key', type: 'password', disabled: !!baseUrl,
         onFocus: event => event.target.select()
     };
+    const propsSetup = {
+        onClick: async _ => {
+            const baseUrl = refs.current.baseUrlInput.value.replace(/\/+$/, '/');
+            if (!baseUrl) return refs.current.baseUrlInput.focus();
+            const apiKey = refs.current.apiKeyInput.value;
+            if (!apiKey) return refs.current.apiKeyInput.focus();
+            onSetup(baseUrl, apiKey);
+        }
+    }
     const propsReset = {
         onClick: _ => onReset(baseUrl)
-    }
-    const propsSetup = {
-        onClick: _ => onSetup(refs.current.baseUrlInput.value.replace(/\/+$/, ''), refs.current.apiKeyInput.value)
     }
     const propsNumberOfDays = {
         defaultValue: numberOfDays, type: 'number', step: 1, min: 0, max: 28,
@@ -80,6 +86,13 @@ export const Config = ({ settings, onChange, onSetup, onReset, onDismiss }) => {
         checked: skipAnimation,
         onChange: skipAnimation => onChange({ skipAnimation })
     };
+    const propsExtensionsShortcuts = {
+        href: 'chrome://extensions/shortcuts', target: '_blank',
+        onClick: event => {
+            event.preventDefault();
+            chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+        }
+    }
 
     useAsyncEffect(async ({ aborted }) => { // animation after load
         await Promise.all(setSpring.start({ x: 0 }));
@@ -103,11 +116,11 @@ export const Config = ({ settings, onChange, onSetup, onReset, onDismiss }) => {
                 <input {...propsWorkHoursStart} />
                 <input {...propsWorkHoursEnd} />
             </div>
-            <div>
+            {/* <div>
                 <label>Theme:</label>
                 <Checkbox {...propsThemeIsDarkRadio(true)}>Dark</Checkbox>
                 <Checkbox {...propsThemeIsDarkRadio(false)}>Light</Checkbox>
-            </div>
+            </div> */}
             <div>
                 <label>Design:</label>
                 <Checkbox {...propsLineHeightRadio(1.6)}>Wide</Checkbox>
@@ -117,6 +130,10 @@ export const Config = ({ settings, onChange, onSetup, onReset, onDismiss }) => {
             <div>
                 <label>Misc:</label>
                 <Checkbox {...propsSkipAnimation}>Skip animations</Checkbox>
+            </div>
+            <div>
+                <label>Hotkey:</label>
+                <a {...propsExtensionsShortcuts}>chrome://extensions/shortcuts</a>
             </div>
         </div>
     </animated.div>

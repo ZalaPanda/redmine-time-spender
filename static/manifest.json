@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Redmine Time Spender",
     "short_name": "RMTS",
-    "description": "Time spent management in Redmine.",
+    "description": "Reduce time spent in Redmine.",
     "version": "0.0.2",
     "background": {
         "service_worker": "background.js"
@@ -26,13 +26,11 @@
             }
         }
     },
-    "optional_permissions": [
-        "cookies"
-    ],
     "permissions": [
-        "storage"
+        "storage", "cookies"
     ],
     "host_permissions": [
+        "http://*/*",
         "https://*/*"
     ]
 }
