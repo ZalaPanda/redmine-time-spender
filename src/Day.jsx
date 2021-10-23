@@ -8,30 +8,38 @@ import { useAsyncEffect } from './uses.js';
 const useStyles = createUseStyles(theme => ({ // color codes: https://www.colorsandfonts.com/color-system
     base: {
         display: 'flex', alignItems: 'center',
-        '&>label': { width: 100 },
-        '&>b': { width: 50 },
+        '&>button': { padding: 0, margin: 0, minWidth: 90 },
+        '&>b': { minWidth: 50, padding: [0, 4] },
         '&>div': { flexGrow: 1 }
     },
-    entry: { position: 'relative', margin: 2, border: [1, 'solid', theme.border], padding: [8, 4], minHeight: 50 },
+    entry: { position: 'relative', margin: 2, border: [1, 'solid', theme.card.border], padding: [8, 4], minHeight: 50 },
     hours: {
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 50, height: 50, float: 'left',
-        '&>b, &>svg, &>button': { position: 'absolute', padding: 0, margin: 0 },
+        '&>svg, &>button': { position: 'absolute', padding: 0, margin: 0 },
+        '&>svg': {
+            '&>circle': { stroke: theme.mark },
+            '&>circle[stroke-dasharray]': { stroke: theme.success }
+        },
         '&>button': {
-            width: 38, height: 38, border: 'none', borderRadius: 20, overflow: 'hidden', opacity: 0,
-            '&:focus, &:hover': { opacity: 1 },
-            '&>svg': { fontSize: 20 },
+            width: 40, height: 40, border: 'none', borderRadius: 20, overflow: 'hidden',
+            '&>svg': { fontSize: 20, display: 'none' },
+            '&>b': { fontSize: 14 },
+            '&:focus, &:hover': {
+                '&>svg': { display: 'inline' },
+                '&>b': { display: 'none' }
+            },
         }
     },
     project: {},
     issue: { color: theme.special },
-    activity: { backgroundColor: theme.specialBg, color: theme.specialText, borderRadius: 4, padding: [0, 6], float: 'right' },
-    comments: { color: theme.textSoft },
+    activity: { backgroundColor: theme.badge.bg, color: theme.badge.text, borderRadius: 4, padding: [0, 6], float: 'right' },
+    comments: { color: theme.muted },
     bar: {
         position: 'relative', height: 12,
         '&>div': { position: 'absolute', display: 'flex', width: '100%', height: '100%' }
     },
     ellapsed: { backgroundColor: theme.danger, margin: [4, 0], boxSizing: 'border-box' },
-    spent: { backgroundColor: theme.success, border: [1, 'solid', theme.subtle], boxSizing: 'border-box' }
+    spent: { backgroundColor: theme.success, border: [1, 'solid', theme.card.border], boxSizing: 'border-box' }
 }));
 
 const Entry = ({ project, issue, activity, hours, comments, baseUrl, disabled, onSelect }) => {
@@ -39,11 +47,13 @@ const Entry = ({ project, issue, activity, hours, comments, baseUrl, disabled, o
     return <div className={classes.entry}>
         <div className={classes.hours}>
             <svg height="50" width="50">
-                <circle cx="25" cy="25" r="20" stroke="#263137" strokeWidth="6" fill="none" /> {/* TODO: theme.gray50 */}
-                <circle cx="25" cy="25" r="20" stroke="#50AF4C" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" /> {/* TODO: theme.green500 */}
+                <circle cx="25" cy="25" r="20" strokeWidth="6" fill="none" />
+                <circle progress={''} cx="25" cy="25" r="20" strokeWidth="8" strokeDasharray={[16.1 * hours, 280]} fill="none" transform="rotate(-90,25,25)" />
             </svg>
-            <b>{hours}h</b>
-            <button disabled={disabled} onClick={onSelect}><FiEdit /></button>
+            <button disabled={disabled} onClick={onSelect}>
+                <b>{hours}h</b>
+                <FiEdit />
+            </button>
         </div>
         <label className={classes.activity}>{activity.name}</label>
         <label className={classes.project}>{project.name}</label>
@@ -72,7 +82,7 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
     }, [entries, selected]);
     return <>
         <div className={classes.base}>
-            <label onClick={onSelectDay}>{day}</label>
+            <button onClick={onSelectDay}>{day}</button>
             <b>{reported}h</b>
             <div>
                 <div className={classes.bar}>

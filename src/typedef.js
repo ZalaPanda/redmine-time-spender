@@ -34,6 +34,19 @@
 /**
  * Color codes for **dark** and **light** theme.
  * @typedef {{
- *  bg: string
+ *  bg: string,
+ *  text: string,
+ *  border: string,
+ *  danger: string,
+ *  success: string,
+ *  special: string,
+ *  muted: string,
+ *  shadow: string,
+ *  mark: string,
+ *  button: { hover: string, active: string },
+ *  card: { border: string },
+ *  field: { text: string, focus: string },
+ *  title: { bg: string, text: string },
+ *  select: { bg: string }
  * }} Theme
  */

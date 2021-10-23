@@ -6,5 +6,5 @@ export const Checkbox = ({ checked, value, onChange = value => { }, children, ..
         ...props, tabIndex: 0,
         onClick: () => onChange(value ?? !checked)
     };
-    return <label {...propsBase}>{checked ? <FiCheckSquare /> : <FiSquare />}{children}</label>
+    return <div {...propsBase}>{checked ? <FiCheckSquare /> : <FiSquare />}{children}</div>
 };

@@ -11,17 +11,17 @@ const useStyles = createUseStyles(theme => ({
         backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
     },
     title: {
-        display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.dark, color: theme.textSoft, fontWeight: 'bold'
+        display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.title.bg, color: theme.title.text, fontWeight: 'bold'
     },
     fields: {
         '&>div': {
             display: 'flex', alignItems: 'center',
-            '&>label': { color: theme.textSoft, minWidth: 80 },
+            '&>label': { color: theme.field.text, minWidth: 80 },
             '&>input': { flexGrow: 1, flexShrink: 1, minWidth: 20 },
             '&[hidden]': { display: 'none' }
         },
-        '&>div:focus-within': {
-            '&>label': { color: theme.text }, // label with svg icon
+        '&>div:hover, &>div:focus-within': {
+            '&>label': { color: theme.field.focus }, // label with svg icon
         },
         '&>hr': { margin: 4, border: 0, borderBottom: [1, 'solid', theme.border] }
     }

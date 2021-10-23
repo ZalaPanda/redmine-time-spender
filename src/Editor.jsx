@@ -13,19 +13,19 @@ const useStyles = createUseStyles(theme => ({
         backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
     },
     title: {
-        display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.dark, color: theme.textSoft, fontWeight: 'bold',
+        display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.title.bg, color: theme.title.text, fontWeight: 'bold',
         userSelect: 'none', touchAction: 'none', cursor: 'grab',
         '&:active': { cursor: 'grabbing' },
     },
     fields: {
         '&>div': {
             display: 'flex', alignItems: 'center', padding: 2,
-            '&>label': { color: theme.specialBg }, // label with svg icon
+            '&>label': { color: theme.field.text }, // label with svg icon
             '&>div': { flexGrow: 1 }, // project, issue, activity
-            '&>textarea': { color: theme.textSoft, flexGrow: 1 } // comments
+            '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
         },
         '&>div:focus-within': {
-            '&>label': { color: theme.textSoft }, // label with svg icon
+            '&>label': { color: theme.field.focus }, // label with svg icon
         },
         '&>hr': { margin: [0, 10, 0, 30], border: 0, borderBottom: [1, 'solid', theme.border] }
     }

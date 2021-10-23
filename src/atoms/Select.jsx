@@ -19,7 +19,7 @@ const useStyles = createUseStyles(theme => ({
             position: 'absolute', zIndex: 1,
             width: '100%', maxHeight: 200, padding: 0, margin: 0, boxSizing: 'border-box',
             overflowY: 'auto', border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow],
-            color: theme.text, backgroundColor: theme.subtle,
+            color: theme.text, backgroundColor: theme.select.bg,
             '&:hidden': { display: 'none' },
             '&>div': { padding: [4, 6], cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
             '&>div[active]': { borderLeft: [4, 'solid', theme.special], backgroundColor: theme.mark }

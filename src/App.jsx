@@ -60,15 +60,18 @@ const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         'html': { backgroundColor: theme.bg, color: theme.text },
         'input, textarea, button': { color: theme.text },
         'button': {
-            '&:hover, &:focus': { backgroundColor: theme.specialBg },
-            '&:active': { backgroundColor: theme.special }
+            '&:hover, &:focus': { backgroundColor: theme.button.hover },
+            '&:active': { backgroundColor: theme.button.active }
         },
         // [selection]
         '::selection': { backgroundColor: theme.mark },
         // [scrollbar]
-        '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.specialBg },
+        '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.mark },
     },
-    base: { display: 'flex', '&>input': { flexGrow: 1 } }
+    base: {
+        display: 'flex', backgroundColor: theme.mark, padding: 4, borderRadius: 4, marginBottom: 4,
+        '&>input': { flexGrow: 1 }
+    }
 }));
 
 const storage = {
@@ -200,50 +203,6 @@ const App = () => {
         await loadLists({ aborted });
     }, [database]);
 
-    const refresh = async () => {
-        const refreshEntries = async () => {
-            const { numberOfDays } = settings;
-            const fromDay = dayjs().subtract(numberOfDays, 'day').format('YYYY-MM-DD');
-            await database.table('entries').where('spent_on').below(fromDay).delete(); // remove old entries
-            const last = await database.table('entries').orderBy('updated_on').last() || {};
-            const entries = await redmine.getEntries(fromDay);
-            if (last?.updated_on && !entries.find(entry => entry.updated_on > last.updated_on)) return;
-            return await database.table('entries').bulkPut(entries);
-        };
-        const refreshProjects = async () => {
-            const last = await database.table('projects').orderBy('updated_on').last() || {};
-            const projects = await redmine.getProjects();
-            if (last?.updated_on && !projects.find(project => project.updated_on > last.updated_on)) return;
-            await database.table('projects').clear();
-            return await database.table('projects').bulkAdd(projects);
-        };
-        const refreshIssues = async () => {
-            const last = await database.table('issues').orderBy('updated_on').last() || {};
-            const issues = await redmine.getIssues(last?.updated_on);
-            if (last?.updated_on && !issues.find(issue => issue.updated_on > last.updated_on)) return;
-            return await database.table('issues').bulkPut(issues);
-        };
-        const refreshActivities = async () => {
-            const activities = await redmine.getActivities();
-            await database.table('activities').bulkPut(activities);
-        };
-        try {
-            refs.current.refreshButton.disabled = true; // TODO: move to event handler
-            const [changedEntries, ...changedValues] = await Promise.all([
-                refreshEntries(),
-                refreshProjects(),
-                refreshIssues(),
-                refreshActivities()
-            ]);
-            if (changedEntries) loadEntries({});
-            if (changedValues.find(value => value)) loadLists({});
-        } catch (error) {
-            raiseError(error);
-        } finally {
-            refs.current.refreshButton.disabled = false; // TODO: move to event handler
-        }
-    };
-
     const propsAddEntryButton = ({
         ref: ref => refs.current.addEntryButton = ref, title: 'Add time entry',
         onClick: _ => setEntry({ spent_on: today })
@@ -265,7 +224,50 @@ const App = () => {
 
     const propsRefreshButton = ({
         ref: ref => refs.current.refreshButton = ref, title: 'Refresh',
-        onClick: refresh
+        onClick: async () => {
+            const refreshEntries = async () => {
+                const { numberOfDays } = settings;
+                const fromDay = dayjs().subtract(numberOfDays, 'day').format('YYYY-MM-DD');
+                await database.table('entries').where('spent_on').below(fromDay).delete(); // remove old entries
+                const last = await database.table('entries').orderBy('updated_on').last() || {};
+                const entries = await redmine.getEntries(fromDay);
+                if (last?.updated_on && !entries.find(entry => entry.updated_on > last.updated_on)) return;
+                return await database.table('entries').bulkPut(entries);
+            };
+            const refreshProjects = async () => {
+                const last = await database.table('projects').orderBy('updated_on').last() || {};
+                const projects = await redmine.getProjects();
+                if (last?.updated_on && !projects.find(project => project.updated_on > last.updated_on)) return;
+                await database.table('projects').clear();
+                return await database.table('projects').bulkAdd(projects);
+            };
+            const refreshIssues = async () => {
+                const last = await database.table('issues').orderBy('updated_on').last() || {};
+                const issues = await redmine.getIssues(last?.updated_on);
+                if (last?.updated_on && !issues.find(issue => issue.updated_on > last.updated_on)) return;
+                return await database.table('issues').bulkPut(issues);
+            };
+            const refreshActivities = async () => {
+                const activities = await redmine.getActivities();
+                await database.table('activities').bulkPut(activities);
+            };
+            try {
+                refs.current.refreshButton.disabled = true;
+                const [changedEntries, ...changedValues] = await Promise.all([
+                    refreshEntries(),
+                    refreshProjects(),
+                    refreshIssues(),
+                    refreshActivities()
+                ]);
+                if (changedEntries) loadEntries({});
+                if (changedValues.find(value => value)) loadLists({});
+            } catch (error) {
+                raiseError(error);
+            } finally {
+                refs.current.refreshButton.disabled = false;
+                refs.current.refreshButton.focus();
+            }
+        }
     });
 
     const propsConfigButton = ({

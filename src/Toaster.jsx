@@ -14,7 +14,7 @@ const useStyles = createUseStyles(theme => ({
             '&>svg': { flexShrink: 0, cursor: 'pointer' }
         }
     },
-    error: { color: '#fff', backgroundColor: '#9e2a2b' }
+    error: { color: theme.text, backgroundColor: theme.danger }
 }));
 
 const Toast = ({ message, onDismiss = () => { }, ...props }) => {
