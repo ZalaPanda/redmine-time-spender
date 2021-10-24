@@ -5,14 +5,14 @@ import dayjs from 'dayjs';
 import { FiEdit } from 'react-icons/fi';
 import { useAsyncEffect } from './uses.js';
 
-const useStyles = createUseStyles(theme => ({ // color codes: https://www.colorsandfonts.com/color-system
+const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     base: {
         display: 'flex', alignItems: 'center',
         '&>button': { padding: 0, margin: 0, minWidth: 90 },
         '&>b': { minWidth: 50, padding: [0, 4] },
         '&>div': { flexGrow: 1 }
     },
-    entry: { position: 'relative', margin: 2, border: [1, 'solid', theme.card.border], padding: [8, 4], minHeight: 50 },
+    entry: { position: 'relative', margin: 3, border: [1, 'solid', theme.card.border], padding: 4, minHeight: 50 },
     hours: {
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 50, height: 50, float: 'left',
         '&>svg, &>button': { position: 'absolute', padding: 0, margin: 0 },
@@ -68,6 +68,7 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
 
     const [start, end] = workHours || [8, 16];
     const sum = end - start;
+    const title = useMemo(() => dayjs(day).format('dddd'), [day]); // Day of Week
     const reported = useMemo(() => entries.reduce((hours, entry) => hours + entry.hours || 0, 0), [entries]);
     const ellapsed = useMemo(() => {
         const now = dayjs();
@@ -82,7 +83,7 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
     }, [entries, selected]);
     return <>
         <div className={classes.base}>
-            <button onClick={onSelectDay}>{day}</button>
+            <button title={title} onClick={onSelectDay}>{day}</button>
             <b>{reported}h</b>
             <div>
                 <div className={classes.bar}>

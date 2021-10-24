@@ -11,43 +11,28 @@ API key
 -------
 
 ![key](API-key.png)
+
+1. Log into Redmine.
 1. Click on **My account** after login.
 2. Under **API access key** click on **Show**.
 3. Copy the *key* (40 hexadecimal characters).
 
-Login with username filled: https://redmine.bhu.flextronics.com/login?username=zaladdev
+Security
+--------
 
-Shortcuts
----------
+Redmine projects/issues/activities and time entries are cached in local IndexedDB.
+Except the `id`s and some date properties (`updated_on`, `closed_on`, etc.) everything else is stored encrypted.
+The key is saved in a cookie under the configured Redmine URL.
+Basically it is as secure as any other cookie in the browser.
 
-API: https://developer.chrome.com/docs/extensions/reference/commands/#basic-command
-Link: chrome://extensions/shortcuts
-
-Color shades generators
------------------------
-https://mdigi.tools/color-shades/#b84058
-https://maketintsandshades.com/#b84058
-
-TODO
-====
-* [x] fix background refresh
-* [x] reload on force refresh
-* [x] check background script module support
-* [x] task features done: color/update/delete
-* [ ] task features left: stopper?/notes?
-* [x] animation on day select
-* [x] save new entry on popup close and continue next time
-* [x] options page
-* [ ] favorite projects/issues/activities
-
-Next steps
-==========
-* check cookie permission request/revoke -> **create options page!**
-* fix dark theme
-* create light theme
+Roadmap
+-------
+* create options page
 * generate lorem ipsum sample data for screenshots
-* add hotkey link to the config dialog
-* publish 🍰
+* publish 1.0 🍰
 
-Color: [chroma](https://gka.github.io/chroma.js) [GitHub](https://github.com/gka/chroma.js)
-Theme generator: [CSS Color Theme Generator by Numl.Design](https://theme.numl.design/)
+Future plans
+------------
+* quick search in tasks and time entries
+* favorite projects/issues/activities
+* periodic auto-refresh in the background

@@ -5,7 +5,7 @@ import { useAsyncEffect } from './uses.js';
 import { useSpring, animated, config } from '@react-spring/web';
 import { Checkbox } from './atoms/Checkbox.jsx';
 
-const useStyles = createUseStyles(theme => ({
+const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     base: {
         position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
         backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
@@ -16,12 +16,10 @@ const useStyles = createUseStyles(theme => ({
     fields: {
         '&>div': {
             display: 'flex', alignItems: 'center',
-            '&>label': { color: theme.field.text, minWidth: 80 },
+            '&>label': { color: theme.muted, minWidth: 80 },
             '&>input': { flexGrow: 1, flexShrink: 1, minWidth: 20 },
+            '&>input[type=number]': { textAlign: 'center' },
             '&[hidden]': { display: 'none' }
-        },
-        '&>div:hover, &>div:focus-within': {
-            '&>label': { color: theme.field.focus }, // label with svg icon
         },
         '&>hr': { margin: 4, border: 0, borderBottom: [1, 'solid', theme.border] }
     }
@@ -110,21 +108,22 @@ export const Config = ({ settings, onChange, onSetup, onReset, onDismiss }) => {
             {!baseUrl && <button {...propsSetup}>SETUP</button>}
             <hr />
             <div>
-                <label>Days:</label>
+                <label>Number of days:</label>
                 <input {...propsNumberOfDays} />
-                <label>Hours:</label>
+                <label>Work hours:</label>
                 <input {...propsWorkHoursStart} />
+                <span>-</span>
                 <input {...propsWorkHoursEnd} />
             </div>
-            {/* <div>
+            <hr />
+            <div>
                 <label>Theme:</label>
                 <Checkbox {...propsThemeIsDarkRadio(true)}>Dark</Checkbox>
                 <Checkbox {...propsThemeIsDarkRadio(false)}>Light</Checkbox>
-            </div> */}
+            </div>
             <div>
                 <label>Design:</label>
                 <Checkbox {...propsLineHeightRadio(1.6)}>Wide</Checkbox>
-                <Checkbox {...propsLineHeightRadio(1.4)}>Normal</Checkbox>
                 <Checkbox {...propsLineHeightRadio(1.2)}>Compact</Checkbox>
             </div>
             <div>

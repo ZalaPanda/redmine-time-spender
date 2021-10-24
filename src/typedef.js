@@ -44,9 +44,10 @@
  *  shadow: string,
  *  mark: string,
  *  button: { hover: string, active: string },
+ *  badge: { bg: string, text: string },
  *  card: { border: string },
  *  field: { text: string, focus: string },
  *  title: { bg: string, text: string },
- *  select: { bg: string }
+ *  select: { bg: string, tape: string }
  * }} Theme
  */

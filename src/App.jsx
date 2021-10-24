@@ -20,7 +20,7 @@ import { Toaster } from './Toaster.jsx';
 const useGlobalStyles = createUseStyles({
     '@font-face': [{
         fontFamily: 'WorkSans',
-        src: 'url("font/work-sans-v11-latin-regular.woff2") format("woff2")',
+        src: 'url("font/work-sans-v11-latin-500.woff2") format("woff2")',
     }, {
         fontFamily: 'WorkSans',
         fontWeight: 'bold',
@@ -28,12 +28,10 @@ const useGlobalStyles = createUseStyles({
     }],
     '@global': {
         '*': { fontSize: 16, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
-        'a': { fontWeight: 'bold', color: 'unset', '&:visited': { color: 'unset' } },
-        'svg': { margin: 2, verticalAlign: 'middle', strokeWidth: 2.5 },
         'html': { scrollBehavior: 'smooth' },
-        'body': { width: 460, minHeight: 300, margin: 10 },
+        'body': { width: 460, minHeight: 400, margin: 4 },
         'input, textarea, button': {
-            display: 'inline-block', backgroundColor: 'transparent',
+            display: 'inline-block', color: 'unset', backgroundColor: 'transparent',
             border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
             '&:focus': { outline: 'none' },
             '&:disabled': { filter: 'opacity(0.6)', cursor: 'auto' }
@@ -41,6 +39,12 @@ const useGlobalStyles = createUseStyles({
         'button': {
             display: 'inline-block', textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4
         },
+        'a': {
+            fontWeight: 'bold', color: 'unset', textDecoration: 'none',
+            '&:visited': { color: 'unset' },
+            '&:hover, &:focus': { textDecoration: 'underline' }
+        },
+        'svg': { margin: 2, verticalAlign: 'middle', strokeWidth: 2.5 },
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
@@ -58,7 +62,6 @@ const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     '@global': {
         '*': { lineHeight: theme.lineHeight },
         'html': { backgroundColor: theme.bg, color: theme.text },
-        'input, textarea, button': { color: theme.text },
         'button': {
             '&:hover, &:focus': { backgroundColor: theme.button.hover },
             '&:active': { backgroundColor: theme.button.active }
@@ -69,7 +72,7 @@ const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.mark },
     },
     base: {
-        display: 'flex', backgroundColor: theme.mark, padding: 4, borderRadius: 4, marginBottom: 4,
+        display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
         '&>input': { flexGrow: 1 }
     }
 }));
@@ -391,7 +394,6 @@ const App = () => {
 
     useEffect(() => refs.current.addEntryButton?.focus(), []); // focus on add entry button
 
-    // if (!settings) return null;
     return <ThemeProvider theme={theme}>
         <Editor {...propsEditor} />
         {config && <Config {...propsConfig} />}

@@ -3,7 +3,7 @@ import { useGesture } from '@use-gesture/react';
 import { createUseStyles } from 'react-jss';
 import { FiChevronDown, FiChevronsDown, FiExternalLink, FiX } from 'react-icons/fi';
 
-const useStyles = createUseStyles(theme => ({
+const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     base: {
         display: 'inline-block', position: 'relative',
         '&>input': { width: '100%', margin: 1, padding: 4, boxSizing: 'border-box' },
@@ -22,7 +22,7 @@ const useStyles = createUseStyles(theme => ({
             color: theme.text, backgroundColor: theme.select.bg,
             '&:hidden': { display: 'none' },
             '&>div': { padding: [4, 6], cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-            '&>div[active]': { borderLeft: [4, 'solid', theme.special], backgroundColor: theme.mark }
+            '&>div[active]': { borderLeft: [4, 'solid', theme.select.tape], backgroundColor: theme.mark }
         }
     }
 }));
@@ -55,8 +55,19 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
         className: classes.base,
         ...props
     });
+    const propsLink = ({
+        href: url, target: '_blank', tabIndex: -1,
+        onClick: event => {
+            event.preventDefault();
+            chrome.tabs.create({ url, active: false });
+        }
+    });
     const propsClear = ({
-        onClick: () => setValue() // clear current value
+        href: '#', tabIndex: -1,
+        onClick: event => {
+            event.preventDefault();
+            setValue(); // clear current value
+        }
     });
     const propsToggle = ({
         onClick: () => setSearch(search => ({ ...search, active: !search.active })) || refs.current.input.focus() // -> toggle list and focus input
@@ -72,7 +83,7 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
             if (which === 46) return search.value || setValue() || event.preventDefault(); // delete -> clear current value
             if (which === 40) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, +1) })) || event.preventDefault(); // down -> select next option
             if (which === 38) return setSearch(search => ({ ...search, active: true, index: getIndex(filtered, search.index, -1) })) || event.preventDefault(); // up -> select prev option
-            if (which === 32) return search.value || setSearch(search => ({ ...search, index: 0, active: !search.active })) || event.preventDefault(); // space (first) -> toggle list
+            if (which === 32) return search.value || setSearch(search => ({ ...search, index: search.active ? -1 : 0, active: !search.active })) || event.preventDefault(); // space (first) -> toggle list
             if (which === 27) return setSearch({ value: '', index: -1, active: false }) || event.preventDefault(); // esc -> hide list
             if (which === 13) return filtered[search.index] && setValue(filtered[search.index]) || event.preventDefault(); // enter -> change current value
             if (which === 9) return filtered[search.index] && setValue(filtered[search.index]); // tab -> change current value
@@ -103,8 +114,8 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
     return <div {...propsBase}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
-            {url && <a href={url} target={'_blank'} tabIndex={-1}><FiExternalLink /></a>}
-            {current && <a tabIndex={-1}><FiX {...propsClear} /></a>}
+            {url && <a {...propsLink}><FiExternalLink /></a>}
+            {current && <a {...propsClear}><FiX /></a>}
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
         <input {...propsInput} />

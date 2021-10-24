@@ -4,13 +4,14 @@ import { FiX } from 'react-icons/fi';
 import { useTransition, animated, config } from '@react-spring/web';
 import { useListen } from './uses.js';
 
-const useStyles = createUseStyles(theme => ({
+const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     base: {
         position: 'fixed', zIndex: 1, width: 420, height: 0,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         '&>div': {
             display: 'inline-flex', flexDirection: 'row', alignItems: 'center',
-            flexShrink: 0, margin: 1, padding: [4, 10], borderRadius: 6, boxShadow: [0, 3, 9, '#000000EE'],
+            flexShrink: 0, margin: 1, padding: [4, 10], borderRadius: 6, boxShadow: [0, 3, 9, theme.shadow],
+            '&>label': { whiteSpace: 'pre' },
             '&>svg': { flexShrink: 0, cursor: 'pointer' }
         }
     },

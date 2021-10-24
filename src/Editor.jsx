@@ -7,7 +7,7 @@ import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximi
 import { useAsyncEffect, useListen } from './uses.js';
 import { Textarea } from './atoms/Textarea.jsx';
 
-const useStyles = createUseStyles(theme => ({
+const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     base: {
         position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
         backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
@@ -33,7 +33,7 @@ const useStyles = createUseStyles(theme => ({
 
 export const Editor = ({ entry: init, lists: [projects, issues, activities], baseUrl, onSubmit, onDuplicate, onDismiss, onDelete }) => {
     const classes = useStyles();
-    const refs = useRef({ issue: undefined });
+    const refs = useRef({ issueSelect: undefined });
     const [minimized, setMinimized] = useState(false);
     const [entry, setEntry] = useState();
     const { id, project, issue, activity, hours, comments, spent_on } = entry || {};
@@ -57,7 +57,7 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
         linkify: item => `${baseUrl}/issues/${item.id}`,
         filter: filter => item => filter.test(item.subject) || filter.test(item.id),
         onChange: issue => setEntry(entry => ({ ...entry, issue, project: issue?.project || entry?.project })),
-        onMount: innerRefs => refs.current.issue = innerRefs.current.input
+        onMount: innerRefs => refs.current.issueSelect = innerRefs.current.input
     };
     const propsHours = {
         placeholder: 'Hours', value: hours || '', type: 'number', min: 0, max: 10, step: 0.25,
@@ -99,7 +99,7 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
         if (aborted) return;
         setEntry(init);
         if (!init) return;
-        refs.current.issue.focus();
+        refs.current.issueSelect.focus();
         await Promise.all(setSpring.start({ y: 0 }));
     }, [init]);
     useListen('unload', () => setEntry(entry => { // save current values to localStorage
