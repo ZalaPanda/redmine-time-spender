@@ -13,7 +13,7 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     }
 }));
 
-const colors = ['red', 'green', 'yellow']; // TODO: get colors from theme
+const colors = ['red', 'green', 'gray'];
 
 export const Task = ({ task: { color, value: current, created_on, updated_on, closed_on }, onChange, onDelete }) => {
     const classes = useStyles();
