@@ -16,6 +16,7 @@ import { Day } from './Day.jsx';
 import { Task } from './Task.jsx';
 import { Config } from './Config.jsx';
 import { Toaster } from './Toaster.jsx';
+import { Bar } from './Bar.jsx';
 
 const useGlobalStyles = createUseStyles({
     '@font-face': [{
@@ -71,7 +72,7 @@ const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         // [scrollbar]
         '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.mark },
     },
-    base: {
+    app: {
         display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
         '&>input': { flexGrow: 1 }
     }
@@ -393,17 +394,17 @@ const App = () => {
     });
 
     useEffect(() => refs.current.addEntryButton?.focus(), []); // focus on add entry button
-
     return <ThemeProvider theme={theme}>
         <Editor {...propsEditor} />
         {config && <Config {...propsConfig} />}
         <Toaster />
-        <div className={classes.base}>
+        <div className={classes.app}>
             <button {...propsAddEntryButton}><FiClock /></button>
             <input {...propsAddTask} />
             <button {...propsRefreshButton}><FiRefreshCw /></button>
             <button {...propsConfigButton}><FiSettings /></button>
         </div>
+        <Bar />
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {days.map(day => <Day {...propsDay(day)} />)}
     </ThemeProvider>;

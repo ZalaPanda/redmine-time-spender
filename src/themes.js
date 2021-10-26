@@ -1,4 +1,4 @@
-export const themes = { // https://spectrum.adobe.com/page/color/
+export const themes = {
     light: {
         bg: '#fdfdfd',
         text: '#000000',

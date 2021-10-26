@@ -6,7 +6,7 @@ import { useSpring, animated, config } from '@react-spring/web';
 import { Checkbox } from './atoms/Checkbox.jsx';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    base: {
+    config: {
         position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
         backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
     },
@@ -97,7 +97,7 @@ export const Config = ({ settings, onChange, onSetup, onReset, onDismiss }) => {
         if (aborted) return;
         refs.current.dismissButton.focus();
     }, []);
-    return <animated.div className={classes.base} style={{ x }}>
+    return <animated.div className={classes.config} style={{ x }}>
         <div className={classes.title}>
             <b>Configuration</b>
             <button {...propsDismiss}><FiX /></button>

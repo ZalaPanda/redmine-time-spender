@@ -5,7 +5,7 @@ import { useTransition, animated, config } from '@react-spring/web';
 import { useListen } from './uses.js';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    base: {
+    toaster: {
         position: 'fixed', zIndex: 1, width: 420, height: 0,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         '&>div': {
@@ -20,7 +20,7 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
 
 const Toast = ({ message, onDismiss = () => { }, ...props }) => {
     useEffect(() => {
-        const timeout = setTimeout(onDismiss, 10 * 1000); // auto-close: 10s
+        const timeout = setTimeout(onDismiss, 10 * 1000); // auto-close after 10s
         return () => clearTimeout(timeout);
     }, []);
     const propsDismiss = { onClick: onDismiss };
@@ -42,8 +42,10 @@ export const Toaster = () => {
         key, style, ...props,
         onDismiss: () => setItems(items => items.filter(item => item.key !== key))
     });
-    useListen('error', (error) => setItems(items => [...items, { key: Date.now(), message: error?.message || String(error), className: classes.error }]));
-    return <div className={classes.base}>
+    useListen('error', (error) => setItems(items => [...items, {
+        key: Date.now(), message: error?.message || String(error), className: classes.error
+    }]));
+    return <div className={classes.toaster}>
         {transitions((style, item) => <Toast {...propsToast(style, item)} />)}
     </div>;
 };

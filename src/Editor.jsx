@@ -8,7 +8,7 @@ import { useAsyncEffect, useListen } from './uses.js';
 import { Textarea } from './atoms/Textarea.jsx';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    base: {
+    editor: {
         position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
         backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
     },
@@ -107,7 +107,7 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
         else window.localStorage.removeItem('draft');
         return entry;
     }));
-    return <animated.div className={classes.base} style={{ y, scale }}>
+    return <animated.div className={classes.editor} style={{ y, scale }}>
         <div className={classes.title} {...propsTitle}>
             <label>{id ? 'Edit time entry' : 'New time entry'}</label>
             <button {...propsMinimize}>{minimized ? <FiMinimize2 /> : <FiMaximize2 />}</button>

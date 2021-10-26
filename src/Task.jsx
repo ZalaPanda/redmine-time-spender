@@ -4,7 +4,7 @@ import { createUseStyles } from 'react-jss';
 import { FiTrash2, FiDroplet, FiSquare, FiCheckSquare } from 'react-icons/fi';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    base: {
+    task: {
         display: 'flex', alignItems: 'center',
         '&>button': { padding: 0 },
         '&>input': { flexGrow: 1, textOverflow: 'ellipsis', padding: 0, margin: 0 },
@@ -28,7 +28,7 @@ export const Task = ({ task: { color, value: current, created_on, updated_on, cl
     const [value, setValue] = useState(current);
 
     const propsBase = ({
-        className: classes.base, title
+        className: classes.task, title
     });
     const propsInput = ({
         value: value || '', readOnly: !!closed_on,
