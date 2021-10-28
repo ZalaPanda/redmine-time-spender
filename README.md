@@ -1,14 +1,19 @@
 redmine-time-spender
 ====================
 
+Chrome web store: [Redmine Time Spender](https://chrome.google.com/webstore/detail/ajgdpnedcfflmknmalhcaenanifgfiop)
+
+![screen](images/promo1.png)
+
 Spend less time with Redmine time tracking.
-This Chrome extension helps to save time with:
-* no need to log into Redmine because every action is done with the API key
+* no need to log into Redmine
 * check the registered time entries with a click/hotkey
 * duplicate or change a time entry with the speed of light
 
-API key
--------
+The plugin is still under development but it can already be used!
+
+The API key
+-----------
 
 ![key](API-key.png)
 
@@ -28,7 +33,6 @@ Basically it is as secure as any other cookie in the browser.
 Roadmap
 -------
 * create options page
-* generate lorem ipsum sample data for screenshots
 * publish 1.0 🍰
 
 Future plans
