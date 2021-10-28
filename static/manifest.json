@@ -3,11 +3,10 @@
     "name": "Redmine Time Spender",
     "short_name": "RMTS",
     "description": "Reduce time spent in Redmine.",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "background": {
         "service_worker": "background.js"
     },
-    "options_page": "popup.html",
     "action": {
         "default_title": "Redmine Time Spender",
         "default_icon": "img/icon-50.png",

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Globals } from '@react-spring/web';
 import { ThemeProvider, createUseStyles } from 'react-jss';
-import { FiRefreshCw, FiClock, FiSettings } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiSettings, FiCoffee } from 'react-icons/fi';
+// import { loremIpsum } from 'lorem-ipsum';
 
 import { themes } from './themes.js';
 import { createKey, createCryptoApi, convertHexToBin, convertBinToHex } from './crypto.js';
@@ -32,13 +33,13 @@ const useGlobalStyles = createUseStyles({
         'html': { scrollBehavior: 'smooth' },
         'body': { width: 460, minHeight: 400, margin: 4 },
         'input, textarea, button': {
-            display: 'inline-block', color: 'unset', backgroundColor: 'transparent',
+            color: 'unset', backgroundColor: 'transparent',
             border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
             '&:focus': { outline: 'none' },
             '&:disabled': { filter: 'opacity(0.6)', cursor: 'auto' }
         },
         'button': {
-            display: 'inline-block', textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4
+            textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4
         },
         'a': {
             fontWeight: 'bold', color: 'unset', textDecoration: 'none',
@@ -212,7 +213,7 @@ const App = () => {
         onClick: _ => setEntry({ spent_on: today })
     });
 
-    const propsAddTask = ({
+    const propsAddTaskInput = ({
         ref: ref => refs.current.addTaskInput = ref, placeholder: 'Add task',
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
@@ -278,6 +279,32 @@ const App = () => {
         ref: ref => refs.current.configButton = ref, title: 'Configuration',
         onClick: _ => setConfig(true)
     });
+
+    // const propsCipherButton = ({
+    //     title: 'Lorem ipsum strings',
+    //     onClick: event => {
+    //         const sentence = _ => loremIpsum({ units: 'sentence', count: 1 });
+    //         const capitalize = ([first, ...rest]) => first.toUpperCase() + rest.join('').toLowerCase();
+    //         const words = count => capitalize(loremIpsum({ units: 'words', count: Math.floor(Math.random() * count) + 1 }));
+    //         // setTasks(tasks => tasks.map(task => ({ // not working
+    //         //     ...task,
+    //         //     value: sentence()
+    //         // })));
+    //         setEntries(entries => entries.map(entry => ({
+    //             ...entry,
+    //             project: { ...entry.project, name: words(3) },
+    //             activity: { ...entry.activity, name: words(1) },
+    //             issue: entry.issue && { ...entry.issue, subject: words(5) },
+    //             comments: sentence()
+    //         })));
+    //         setLists(([projects, issues, activities]) => [
+    //             projects.map(project => ({ ...project, name: words(3) })),
+    //             issues.map(issue => ({ ...issue, subject: words(5), description: sentence(), project: issue.project && { ...issue.project, name: words(3) } })),
+    //             activities.map(activity => ({ ...activity, name: words(1) })),
+    //         ]);
+    //         event.currentTarget.setAttribute('hidden', true);
+    //     }
+    // });
 
     const propsEditor = ({
         entry, lists, baseUrl: settings?.redmine?.baseUrl,
@@ -400,9 +427,10 @@ const App = () => {
         <Toaster />
         <div className={classes.app}>
             <button {...propsAddEntryButton}><FiClock /></button>
-            <input {...propsAddTask} />
+            <input {...propsAddTaskInput} />
             <button {...propsRefreshButton}><FiRefreshCw /></button>
             <button {...propsConfigButton}><FiSettings /></button>
+            {/* <button {...propsCipherButton}><FiCoffee /></button> */}
         </div>
         <Bar />
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
