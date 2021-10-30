@@ -6,11 +6,11 @@ Chrome web store: [Redmine Time Spender](https://chrome.google.com/webstore/deta
 ![screen](images/promo1.png)
 
 Spend less time with Redmine time tracking.
-* no need to log into Redmine
-* check the registered time entries with a click/hotkey
-* duplicate or change a time entry with the speed of light
+* no need to login again because your session has expired
+* check your time entries with a simple click/hotkey
+* change or create a copy of a time entry with the speed of light
 
-The plugin is still under development but it can already be used!
+The plugin is still **under development** but it can already be used!
 
 The API key
 -----------
@@ -32,11 +32,13 @@ Basically it is as secure as any other cookie in the browser.
 
 Roadmap
 -------
-* create options page
+* create options page with help (+screenshots)
+* fix sync issue- #2
 * publish 1.0 🍰
 
 Future plans
 ------------
+* filter issues based on selected project (Laci)
 * quick search in tasks and time entries
 * favorite projects/issues/activities
 * periodic auto-refresh in the background

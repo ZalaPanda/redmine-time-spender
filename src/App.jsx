@@ -236,7 +236,7 @@ const App = () => {
                 await database.table('entries').where('spent_on').below(fromDay).delete(); // remove old entries
                 const last = await database.table('entries').orderBy('updated_on').last() || {};
                 const entries = await redmine.getEntries(fromDay);
-                if (last?.updated_on && !entries.find(entry => entry.updated_on > last.updated_on)) return;
+                if (last?.updated_on && !entries.find(entry => entry.updated_on > last.updated_on)) return; // TODO: FIX THIS! #2
                 return await database.table('entries').bulkPut(entries);
             };
             const refreshProjects = async () => {
