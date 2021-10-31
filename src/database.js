@@ -29,7 +29,7 @@ export const createEntryptedDatabase = (crypto) => {
                 const keyNames = [primaryKey?.keyPath, ...indexes?.map(index => index.keyPath)].filter(key => key);
 
                 const encrypt = (value) => {
-                    // console.log('encrypt', table.name, value);
+                    if (!value) return value;
                     const { [secretKey]: secretValue = undefined, ...props } = value;
                     const [keys, rest] = Object.entries({ ...props, ...secretValue && crypto.decrypt(secretValue) }).reduce(([keys, rest], [key, value]) =>
                         keyNames.includes(key) ?
@@ -39,7 +39,7 @@ export const createEntryptedDatabase = (crypto) => {
                     return { ...keys, [secretKey]: crypto.encrypt(rest) };
                 };
                 const decrypt = (value) => {
-                    // console.log('decrypt', table.name, value);
+                    if (!value) return value;
                     const { [secretKey]: secretValue = undefined, ...props } = value;
                     return { ...props, ...secretValue && crypto.decrypt(secretValue) };
                 };
