@@ -1,5 +1,6 @@
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env, argv) => [{
     entry: {
@@ -12,6 +13,7 @@ module.exports = (env, argv) => [{
     },
     plugins: [
         new CopyPlugin({ patterns: ['static'] }),
+        new HtmlWebpackPlugin({ filename: 'popup.html', chunks: ['popup'], title: 'Redmine Time Spender', scriptLoading: 'module' }),
     ],
     module: {
         rules: [
@@ -39,7 +41,7 @@ module.exports = (env, argv) => [{
             maxInitialRequests: Infinity,
             minSize: 0,
             cacheGroups: {
-                vendor: {
+                module: {
                     test: /[\\/]node_modules[\\/]/,
                     name: module => {
                         const expression = /[\\/]node_modules[\\/](.*?)([\\/]|$)/;
@@ -47,7 +49,8 @@ module.exports = (env, argv) => [{
                         const name = module.context.match(expression)[1]; // ./node_modules/office-ui-fabric-react/lib/Dropdown -> office-ui-fabric-react
                         return `module.${name.replace('@', '')}`; // result: "module.react.js"
                     }
-                }
+                },
+                default: false
             }
         }
     }
