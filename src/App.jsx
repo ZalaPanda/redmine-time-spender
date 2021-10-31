@@ -125,6 +125,7 @@ const App = () => {
     const refs = useRef({ addEntryButton: undefined, addTaskInput: undefined, refreshButton: undefined, configButton: undefined });
     const raiseError = useRaise('error');
 
+    const [config, setConfig] = useState(false); // config dialog shown/hidden
     /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
     const [settings, setSettings] = useState();
     useAsyncEffect(async ({ aborted }) => { // load settings from local storage
@@ -150,7 +151,6 @@ const App = () => {
         Globals.assign({ skipAnimation });
     }, [settings?.skipAnimation]);
 
-    const [config, setConfig] = useState(false); // config dialog shown/hidden
     /** @type {[RedmineAPI, React.Dispatch<(prevState: RedmineAPI) => RedmineAPI>]} */
     const [redmine, setRedmine] = useState(); // Redmine API
     /** @type {[Dexie.Database, React.Dispatch<(prevState: Dexie.Database) => Dexie.Database>]} */
@@ -234,26 +234,30 @@ const App = () => {
                 const { numberOfDays } = settings;
                 const fromDay = dayjs().subtract(numberOfDays, 'day').format('YYYY-MM-DD');
                 await database.table('entries').where('spent_on').below(fromDay).delete(); // remove old entries
-                const last = await database.table('entries').orderBy('updated_on').last() || {};
+                const count = await database.table('entries').count();
+                const last = await database.table('entries').orderBy('updated_on').last();
                 const entries = await redmine.getEntries(fromDay);
-                if (last?.updated_on && !entries.find(entry => entry.updated_on > last.updated_on)) return; // TODO: FIX THIS! #2
+                if (count === entries.length && last?.updated_on && !entries.find(entry => entry.updated_on > last.updated_on)) return; // nothing changed
+                await database.table('entries').where('id').noneOf(entries.map(entry => entry.id)).delete(); // remove unknown entries
                 return await database.table('entries').bulkPut(entries);
             };
             const refreshProjects = async () => {
-                const last = await database.table('projects').orderBy('updated_on').last() || {};
+                const count = await database.table('entries').count();
+                const last = await database.table('projects').orderBy('updated_on').last();
                 const projects = await redmine.getProjects();
-                if (last?.updated_on && !projects.find(project => project.updated_on > last.updated_on)) return;
+                if (count === entries.length && last?.updated_on && !projects.find(project => project.updated_on > last.updated_on)) return;
                 await database.table('projects').clear();
                 return await database.table('projects').bulkAdd(projects);
             };
             const refreshIssues = async () => {
-                const last = await database.table('issues').orderBy('updated_on').last() || {};
+                const last = await database.table('issues').orderBy('updated_on').last();
                 const issues = await redmine.getIssues(last?.updated_on);
                 if (last?.updated_on && !issues.find(issue => issue.updated_on > last.updated_on)) return;
                 return await database.table('issues').bulkPut(issues);
             };
             const refreshActivities = async () => {
                 const activities = await redmine.getActivities();
+                await database.table('activities').where('id').noneOf(activities.map(activity => activity.id)).delete(); // remove unknown activities
                 await database.table('activities').bulkPut(activities);
             };
             try {
