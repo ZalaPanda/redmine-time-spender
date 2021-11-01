@@ -4,7 +4,7 @@ import { createUseStyles } from 'react-jss';
 import { FiChevronDown, FiChevronsDown, FiExternalLink, FiX } from 'react-icons/fi';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    base: {
+    select: {
         display: 'inline-block', position: 'relative',
         '&>input': { width: '100%', margin: 1, padding: 4, boxSizing: 'border-box' },
         '&>label': {
@@ -22,7 +22,8 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
             color: theme.text, backgroundColor: theme.select.bg,
             '&:hidden': { display: 'none' },
             '&>div': { padding: [4, 6], cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-            '&>div[active]': { borderLeft: [4, 'solid', theme.select.tape], backgroundColor: theme.mark }
+            '&>div[active]': { borderLeft: [4, 'solid', theme.select.tape], backgroundColor: theme.mark },
+            '&>small': { padding: [0, 6], color: theme.muted }
         }
     }
 }));
@@ -48,11 +49,11 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
         refs.current.input.focus();
     };
 
-    const propsBase = ({
+    const propsSelect = ({
         onBlur: () => refs.current.timeout = setTimeout(() => setSearch({ value: '', index: -1, active: false }), 100), // -> start list hide timeout
         onFocus: () => clearTimeout(refs.current.timeout), // -> cancel list hide timeout
         tabIndex: -1, // needed to detect focus/blur events
-        className: classes.base,
+        className: classes.select,
         ...props
     });
     const propsLink = ({
@@ -111,7 +112,7 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
         element && element.scrollIntoView({ block: 'nearest' });
     }, [search.index]);
     useEffect(() => onMount(refs), []);
-    return <div {...propsBase}>
+    return <div {...propsSelect}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
             {url && <a {...propsLink}><FiExternalLink /></a>}
@@ -120,7 +121,8 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
         </label>
         <input {...propsInput} />
         {search.active && <div {...propsList}>
-            {filtered?.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>{render(value)}</div>)}
+            {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>{render(value)}</div>)}
+            {!filtered.length && <small>No more options</small>}
         </div>}
     </div>;
 };
