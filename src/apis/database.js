@@ -11,9 +11,19 @@ const databaseSchema = {
 const secretKey = '_data';
 
 /**
+ * Create Dexie database without encryption
+ * @returns {Dexie}
+ */
+export const createUnentryptedDatabase = () => {
+    const database = new Dexie(databaseName);
+    database.version(1).stores(databaseSchema);
+    return database;
+};
+
+/**
  * Create Dexie database with encryption
  * @param {CryptoAPI} crypto 
- * @returns {Dexie.Database}
+ * @returns {Dexie}
  */
 export const createEntryptedDatabase = (crypto) => {
     const database = new Dexie(databaseName);
