@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import { createUseStyles } from 'react-jss';
-import { useListen } from './uses.js';
+import { useListen } from './apis/uses.js';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     bar: { height: 2, margin: [-2, 0], backgroundColor: theme.muted, borderRadius: 2 }

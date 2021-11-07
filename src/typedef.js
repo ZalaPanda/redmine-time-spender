@@ -5,6 +5,7 @@
  *  theme?: { isDark: boolean, lineHeight: number },
  *  numberOfDays: number,
  *  workHours: [start: number, end: number],
+ *  autoRefresh: string,
  *  skipAnimation: boolean
  * }} Settings
  */

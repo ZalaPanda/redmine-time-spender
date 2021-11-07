@@ -5,6 +5,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = (env, argv) => [{
     entry: {
         popup: './src/popup.js',
+        options: './src/options.js',
         background: './src/background.js'
     },
     output: {
@@ -14,6 +15,7 @@ module.exports = (env, argv) => [{
     plugins: [
         new CopyPlugin({ patterns: ['static'] }),
         new HtmlWebpackPlugin({ filename: 'popup.html', chunks: ['popup'], title: 'Redmine Time Spender', scriptLoading: 'module' }),
+        new HtmlWebpackPlugin({ filename: 'options.html', chunks: ['options'], title: 'Redmine Time Spender - Options', scriptLoading: 'module' })
     ],
     module: {
         rules: [
@@ -30,7 +32,7 @@ module.exports = (env, argv) => [{
             }
         ]
     },
-    devtool: argv.mode === 'development' ? 'inline-source-map' : false,
+    devtool: argv.mode === 'development' ? 'inline-source-map' : 'source-map',
     performance: {
         maxAssetSize: 600 * 1024, // default: 250 KB
         maxEntrypointSize: 1.2 * 1024 * 1024 // default: 250 KB
@@ -49,6 +51,11 @@ module.exports = (env, argv) => [{
                         const name = module.context.match(expression)[1]; // ./node_modules/office-ui-fabric-react/lib/Dropdown -> office-ui-fabric-react
                         return `module.${name.replace('@', '')}`; // result: "module.react.js"
                     }
+                },
+                shared: {
+                    test: /[\\/]src[\\/]/,
+                    minChunks: 2,
+                    name: 'module.shared',
                 },
                 default: false
             }

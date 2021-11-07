@@ -5,21 +5,20 @@ import { FiRefreshCw, FiClock, FiSettings, FiCoffee } from 'react-icons/fi';
 // import { loremIpsum } from 'lorem-ipsum';
 
 import { themes } from './themes.js';
-import { createKey, createCryptoApi, convertHexToBin, convertBinToHex } from './crypto.js';
-import { createRedmineApi } from './redmine.js';
-import { createEntryptedDatabase } from './database.js';
-import { useAsyncEffect, useRaise } from './uses.js';
+import { createCryptoApi, convertHexToBin } from './apis/crypto.js';
+import { createRedmineApi } from './apis/redmine.js';
+import { createEntryptedDatabase } from './apis/database.js';
+import { useAsyncEffect, useRaise } from './apis/uses.js';
 
 import dayjs from 'dayjs';
 
 import { Editor } from './Editor.jsx';
 import { Day } from './Day.jsx';
 import { Task } from './Task.jsx';
-import { Config } from './Config.jsx';
 import { Toaster } from './Toaster.jsx';
 import { Bar } from './Bar.jsx';
 
-const useGlobalStyles = createUseStyles({
+export const useGlobalStyles = createUseStyles({
     '@font-face': [{
         fontFamily: 'WorkSans',
         src: 'url("font/work-sans-v11-latin-500.woff2") format("woff2")',
@@ -60,7 +59,7 @@ const useGlobalStyles = createUseStyles({
     },
 });
 
-const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
+export const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     '@global': {
         '*': { lineHeight: theme.lineHeight },
         'html': { backgroundColor: theme.bg, color: theme.text },
@@ -73,13 +72,13 @@ const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         // [scrollbar]
         '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.mark },
     },
-    app: {
+    title: {
         display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
         '&>input': { flexGrow: 1 }
     }
 }));
 
-const storage = {
+export const storage = {
     get: keys => new Promise((resolve, reject) => chrome.storage.local.get(keys, items => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(items))),
     set: items => new Promise((resolve, reject) => chrome.storage.local.set(items, _ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve())),
     remove: keys => new Promise((resolve, reject) => chrome.storage.local.remove(keys, _ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve())),
@@ -87,7 +86,7 @@ const storage = {
 };
 
 const cookieName = '_redmine_time_spender';
-const cookie = (url) => ({
+export const cookie = (url) => ({
     get: _ => new Promise((resolve, reject) => chrome.cookies.get({
         name: cookieName, url
     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
@@ -111,7 +110,7 @@ const cookie = (url) => ({
 });
 
 /** @type {Settings} */
-const defaultSettings = {
+export const defaultSettings = {
     redmine: undefined,
     theme: { isDark: true, lineHeight: 1.6 },
     numberOfDays: 7,
@@ -122,17 +121,16 @@ const defaultSettings = {
 const App = () => {
     useGlobalStyles();
 
-    const refs = useRef({ addEntryButton: undefined, addTaskInput: undefined, refreshButton: undefined, configButton: undefined });
+    const refs = useRef({ addEntryButton: undefined, addTaskInput: undefined, refreshButton: undefined, optionsButton: undefined });
     const raiseError = useRaise('error');
 
-    const [config, setConfig] = useState(false); // config dialog shown/hidden
     /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
     const [settings, setSettings] = useState();
     useAsyncEffect(async ({ aborted }) => { // load settings from local storage
         const settings = await storage.get();
         if (aborted) return;
         setSettings({ ...defaultSettings, ...settings });
-        setConfig(!settings?.redmine); // open config dialog
+        if (!settings?.redmine) chrome.runtime.openOptionsPage(); // open options
     }, []);
 
     /** @type {[Theme, React.Dispatch<(prevState: Theme) => Theme>]} */
@@ -179,6 +177,10 @@ const App = () => {
         if (aborted) return;
         setRedmine(redmine);
         setDatabase(database);
+
+        const { autoRefresh, lastRefresh } = settings; // handle auto refresh
+        if (await database.table('activities').count() && autoRefresh && lastRefresh && dayjs().isSame(dayjs(lastRefresh), autoRefresh)) return;
+        refs.current.refreshButton.click();
     }, [settings?.redmine]);
 
     const loadTasks = async ({ aborted }) => {
@@ -230,6 +232,7 @@ const App = () => {
     const propsRefreshButton = ({
         ref: ref => refs.current.refreshButton = ref, title: 'Refresh',
         onClick: async () => {
+            debugger;
             const refreshEntries = async () => {
                 const { numberOfDays } = settings;
                 const fromDay = dayjs().subtract(numberOfDays, 'day').format('YYYY-MM-DD');
@@ -270,6 +273,7 @@ const App = () => {
                 ]);
                 if (changedEntries) loadEntries({});
                 if (changedValues.find(value => value)) loadLists({});
+                await storage.set({ lastRefresh: dayjs().toJSON() }); // save last refresh date
             } catch (error) {
                 raiseError(error);
             } finally {
@@ -279,9 +283,9 @@ const App = () => {
         }
     });
 
-    const propsConfigButton = ({
-        ref: ref => refs.current.configButton = ref, title: 'Configuration',
-        onClick: _ => setConfig(true)
+    const propsOptionsButton = ({
+        ref: ref => refs.current.optionsButton = ref, title: 'Options',
+        onClick: _ => chrome.runtime.openOptionsPage()
     });
 
     // const propsCipherButton = ({
@@ -351,51 +355,6 @@ const App = () => {
         onDismiss: () => setEntry() || refs.current.addEntryButton.focus()
     });
 
-    const propsConfig = {
-        settings,
-        onChange: async (changes) => {
-            try {
-                await storage.set(changes);
-                setSettings(settings => ({ ...settings, ...changes }));
-            } catch (error) {
-                raiseError(error);
-            }
-        },
-        onSetup: async (baseUrl, apiKey) => {
-            try {
-                const result = await cookie(baseUrl).permission.contains(); // check permission to redmine cookies
-                if (!result) await cookie(baseUrl).permission.request(); // request permission
-                const redmine = createRedmineApi(baseUrl, apiKey);
-                await redmine.getUser(); // check URL and API key
-                const cryptoKey = createKey(); // generate new crypto key
-                await cookie(baseUrl).set(convertBinToHex(cryptoKey)); // save crypto key in cookie
-                const crypto = createCryptoApi(cryptoKey);
-                const encodedKey = convertBinToHex(crypto.encrypt(apiKey)); // encrypt API key
-                await storage.set({ redmine: { baseUrl, encodedKey } }); // save URL and encoded API key
-                setSettings(settings => ({ ...settings, redmine: { baseUrl, encodedKey } }));
-            } catch (error) {
-                raiseError(error);
-            }
-        },
-        onReset: async (baseUrl) => {
-            try {
-                await cookie(baseUrl).permission.remove(); // remove permission to redmine cookies
-                database && Promise.all([ // purge everything from database
-                    database.table('projects').clear(),
-                    database.table('issues').clear(),
-                    database.table('activities').clear(),
-                    database.table('entries').clear(),
-                    database.table('tasks').clear() // TODO: transfer tasks?
-                ]);
-                await storage.remove('redmine');
-                setSettings(({ redmine, ...settings }) => settings);
-            } catch (error) {
-                raiseError(error);
-            }
-        },
-        onDismiss: () => setConfig(false)
-    };
-
     const propsTask = (task) => ({
         task, key: task.id,
         onChange: async (props) => {
@@ -427,18 +386,18 @@ const App = () => {
     useEffect(() => refs.current.addEntryButton?.focus(), []); // focus on add entry button
     return <ThemeProvider theme={theme}>
         <Editor {...propsEditor} />
-        {config && <Config {...propsConfig} />}
         <Toaster />
-        <div className={classes.app}>
+        <div className={classes.title}>
             <button {...propsAddEntryButton}><FiClock /></button>
             <input {...propsAddTaskInput} />
             <button {...propsRefreshButton}><FiRefreshCw /></button>
-            <button {...propsConfigButton}><FiSettings /></button>
+            <button {...propsOptionsButton}><FiSettings /></button>
             {/* <button {...propsCipherButton}><FiCoffee /></button> */}
         </div>
         <Bar />
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {days.map(day => <Day {...propsDay(day)} />)}
+        {settings && settings.lastRefresh}
     </ThemeProvider>;
 };
 

@@ -4,7 +4,7 @@ import { useDrag } from '@use-gesture/react';
 import { useSpring, animated, config } from '@react-spring/web';
 import { Select } from './atoms/Select.jsx';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { useAsyncEffect, useListen } from './uses.js';
+import { useAsyncEffect, useListen } from './apis/uses.js';
 import { Textarea } from './atoms/Textarea.jsx';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
@@ -39,6 +39,8 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
     const { id, project, issue, activity, hours, comments, spent_on } = entry || {};
     const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }));
 
+    const favorites = { projects: [], issues: [] }; // { projects: [920, 977], issues: [31592] };
+
     const propsTitle = {
         ...useDrag(({ down, offset: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, from: () => [0, y.get()] })()
     };
@@ -48,6 +50,7 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
         stringlify: item => item.id,
         linkify: item => `${baseUrl}/projects/${item.id}`,
         filter: filter => item => filter.test(item.name),
+        favorite: item => favorites.projects.includes(item.id),
         onChange: project => setEntry(entry => ({ ...entry, project, issue: undefined }))
     };
     const propsIssue = {
@@ -57,6 +60,7 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
         linkify: item => `${baseUrl}/issues/${item.id}`,
         filter: filter => item => filter.test(item.subject) || filter.test(item.id),
         onChange: issue => setEntry(entry => ({ ...entry, issue, project: issue?.project || entry?.project })),
+        favorite: item => favorites.issues.includes(item.id),
         onMount: innerRefs => refs.current.issueSelect = innerRefs.current.input
     };
     const propsHours = {

@@ -3,7 +3,7 @@ import { useSpring, animated } from '@react-spring/web';
 import { createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import { FiEdit } from 'react-icons/fi';
-import { useAsyncEffect } from './uses.js';
+import { useAsyncEffect } from './apis/uses.js';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     day: {

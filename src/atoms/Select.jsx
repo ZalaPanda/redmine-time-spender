@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { createUseStyles } from 'react-jss';
-import { FiChevronDown, FiChevronsDown, FiExternalLink, FiX } from 'react-icons/fi';
+import { FiChevronDown, FiChevronsDown, FiExternalLink, FiStar, FiX } from 'react-icons/fi';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     select: {
@@ -10,7 +10,7 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         '&>label': {
             position: 'absolute', display: 'flex', alignItems: 'center', pointerEvents: 'none',
             width: '100%', height: '100%', margin: 1, padding: 4, boxSizing: 'border-box',
-            '&>div': { flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+            '&>div': { flexGrow: 1, overflow: 'hidden', whiteSpace: 'nowrap' },
             '&>svg': { flexShrink: 0, pointerEvents: 'auto' },
             '&>a': { display: 'none', pointerEvents: 'auto' }
         },
@@ -20,9 +20,13 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
             width: '100%', maxHeight: 200, padding: 0, margin: 0, boxSizing: 'border-box',
             overflowY: 'auto', border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow],
             color: theme.text, backgroundColor: theme.select.bg,
-            '&:hidden': { display: 'none' },
-            '&>div': { padding: [4, 6], cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+            '&>div': { padding: [4, 6], cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap' },
             '&>div[active]': { borderLeft: [4, 'solid', theme.select.tape], backgroundColor: theme.mark },
+            '&>div:hover>svg': { display: 'block' },
+            '&>div>svg': {
+                float: 'right', color: theme.muted, display: 'none',
+                '&[active]': { color: theme.text, display: 'block' },
+            },
             '&>small': { padding: [0, 6], color: theme.muted }
         }
     }
@@ -31,14 +35,19 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
 const step = 20;
 const tolerance = 50;
 
-export const Select = ({ value: current, values, placeholder, stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), onChange = value => { }, onMount = refs => { }, ...props }) => {
+export const Select = ({
+    value: current, values, placeholder,
+    stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), favorite = value => false,
+    onChange = value => { }, onFavorite = value => { }, onMount = refs => { }, ...props
+}) => {
     const classes = useStyles();
     const refs = useRef({ input: undefined, list: undefined, timeout: undefined });
     const [limit, setLimit] = useState(step);
     const [search, setSearch] = useState({ value: '', index: -1, active: false });
     const filtered = useMemo(() => {
         const exp = RegExp((search.value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); // https://stackoverflow.com/a/6969486
-        return values?.filter(filter(exp)) || [];
+        const [favorites, rest] = values.filter(filter(exp)).reduce(([favorites, rest], item) => favorite(item) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
+        return [...favorites, ...rest];
     }, [search.value, values]);
     const url = useMemo(() => current && linkify(current), [current]);
 
@@ -106,6 +115,9 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
         onClick: () => setValue(value),
         onMouseEnter: () => setSearch(search => ({ ...search, index }))
     });
+    const propsFavorite = (value) => ({
+        active: favorite(value) ? 'true' : null
+    });
 
     useEffect(() => { // scroll to selected option
         const element = refs.current.list?.children[search.index];
@@ -121,7 +133,7 @@ export const Select = ({ value: current, values, placeholder, stringlify = value
         </label>
         <input {...propsInput} />
         {search.active && <div {...propsList}>
-            {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>{render(value)}</div>)}
+            {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}><FiStar {...propsFavorite(value)} />{render(value)}</div>)}
             {!filtered.length && <small>No more options</small>}
         </div>}
     </div>;

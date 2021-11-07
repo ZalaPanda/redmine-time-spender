@@ -12,6 +12,10 @@
         "default_icon": "img/icon-50.png",
         "default_popup": "popup.html"
     },
+    "options_ui": {
+        "page": "options.html",
+        "open_in_tab": false
+    },
     "icons": {
         "16": "img/icon-16.png",
         "48": "img/icon-48.png",
@@ -26,7 +30,10 @@
         }
     },
     "permissions": [
-        "storage", "cookies"
+        "storage"
+    ],
+    "optional_permissions": [
+        "cookies"
     ],
     "host_permissions": [
         "http://*/*",
