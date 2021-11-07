@@ -12,16 +12,6 @@ Spend less time with Redmine time tracking.
 
 The plugin is still **under development** but it can already be used!
 
-The API key
------------
-
-![key](API-key.png)
-
-1. Log into Redmine.
-1. Click on **My account** after login.
-2. Under **API access key** click on **Show**.
-3. Copy the *key* (40 hexadecimal characters).
-
 Security
 --------
 
