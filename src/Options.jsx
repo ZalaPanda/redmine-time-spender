@@ -209,7 +209,7 @@ const Options = () => {
                 </section>
                 <section>
                     <label>Auto refresh:</label>
-                    <Checkbox {...propsAutoRefreshRadio('')}>Off</Checkbox>
+                    <Checkbox {...propsAutoRefreshRadio(false)}>Off</Checkbox>
                     <Checkbox {...propsAutoRefreshRadio('hour')}>Hourly</Checkbox>
                     <Checkbox {...propsAutoRefreshRadio('day')}>Daily</Checkbox>
                 </section>

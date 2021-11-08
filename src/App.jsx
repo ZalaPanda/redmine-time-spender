@@ -104,7 +104,7 @@ export const cookie = (url) => ({
             permissions: ['cookies'], origins: [new URL(url).href]
         }, resolve)),
         remove: _ => new Promise((resolve) => chrome.permissions.remove({
-            permissions: ['cookies'], origins: [new URL(url).href]
+            permissions: ['cookies']
         }, resolve))
     }
 });
@@ -115,7 +115,8 @@ export const defaultSettings = {
     theme: { isDark: true, lineHeight: 1.6 },
     numberOfDays: 7,
     workHours: [8, 16],
-    skipAnimation: false
+    skipAnimation: false,
+    autoRefresh: false
 };
 
 const App = () => {
