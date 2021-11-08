@@ -1,2 +1,2 @@
 chrome.action.onClicked.addListener(() => chrome.browserAction.setPopup()); // open popup
-chrome.runtime.onInstalled.addListener((details) => details.reason === 'install' && chrome.runtime.openOptionsPage()); // open options
+chrome.runtime.onInstalled.addListener(({ reason }) => reason === chrome.runtime.OnInstalledReason.INSTALL && chrome.runtime.openOptionsPage()); // open options
