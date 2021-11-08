@@ -1,9 +1,8 @@
-import React, { useMemo, useRef } from 'react';
-import { useSpring, animated } from '@react-spring/web';
+import React, { useMemo } from 'react';
 import { createUseStyles } from 'react-jss';
 import dayjs from 'dayjs';
 import { FiEdit } from 'react-icons/fi';
-import { useAsyncEffect } from './apis/uses.js';
+import { Collapsible } from './atoms/Collapsible.jsx';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     day: {
@@ -78,7 +77,6 @@ const Entry = ({ project, issue, activity, hours, sumHours, comments, baseUrl, d
 
 export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, onSelectEntry }) => {
     const classes = useStyles();
-    const refs = useRef({ list: undefined });
 
     const [start, end] = workHours || [8, 16];
     const sumHours = end - start;
@@ -90,11 +88,6 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
         const hours = now.hour() + now.minute() / 60;
         return Math.min(hours, end) - Math.min(hours, start);
     }, []);
-    const [{ height }, setSpring] = useSpring(() => ({ height: 0, immediate: true }));
-    useAsyncEffect(async () => {
-        const height = selected ? refs.current.list.scrollHeight : 0;
-        await Promise.all(setSpring.start({ height }));
-    }, [entries, selected]);
     return <>
         <div className={classes.day}>
             <button title={title} onClick={onSelectDay}>{day}</button>
@@ -106,8 +99,8 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
                 </div>
             </div>
         </div>
-        <animated.div ref={ref => refs.current.list = ref} style={{ height, overflow: 'hidden' }}>
+        <Collapsible open={selected}>
             {entries.map(entry => <Entry key={entry.id} {...entry} baseUrl={baseUrl} sumHours={sumHours} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
-        </animated.div>
+        </Collapsible>
     </>
 };
