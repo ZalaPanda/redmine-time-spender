@@ -84,7 +84,6 @@ const Options = () => {
     const propsSetupButton = {
         ref: ref => refs.current.setupButton = ref,
         onClick: async _ => {
-            debugger;
             const baseUrl = refs.current.baseUrlInput.value.replace(/\/+$/, '/');
             if (!baseUrl) return refs.current.baseUrlInput.focus() || raiseError('Base URL is missing');
             const apiKey = refs.current.apiKeyInput.value;

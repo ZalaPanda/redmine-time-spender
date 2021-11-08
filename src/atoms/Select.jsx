@@ -37,7 +37,7 @@ const tolerance = 50;
 
 export const Select = ({
     value: current, values, placeholder,
-    stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value), favorite = value => false,
+    stringlify = value => value, render = value => value, linkify = value => null, filter = exp => value => exp.test(value),
     onChange = value => { }, onFavorite = value => { }, onMount = refs => { }, ...props
 }) => {
     const classes = useStyles();
@@ -46,8 +46,7 @@ export const Select = ({
     const [search, setSearch] = useState({ value: '', index: -1, active: false });
     const filtered = useMemo(() => {
         const exp = RegExp((search.value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); // https://stackoverflow.com/a/6969486
-        const [favorites, rest] = values.filter(filter(exp)).reduce(([favorites, rest], item) => favorite(item) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
-        return [...favorites, ...rest];
+        return values.filter(filter(exp));
     }, [search.value, values]);
     const url = useMemo(() => current && linkify(current), [current]);
 
@@ -116,7 +115,8 @@ export const Select = ({
         onMouseEnter: () => setSearch(search => ({ ...search, index }))
     });
     const propsFavorite = (value) => ({
-        active: favorite(value) ? 'true' : null
+        active: value.favorite ? 'true' : null,
+        onClick: () => onFavorite(value)
     });
 
     useEffect(() => { // scroll to selected option

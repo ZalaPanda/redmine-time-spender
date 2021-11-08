@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { createUseStyles } from 'react-jss';
 import { useDrag } from '@use-gesture/react';
 import { useSpring, animated, config } from '@react-spring/web';
@@ -31,7 +31,7 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     }
 }));
 
-export const Editor = ({ entry: init, lists: [projects, issues, activities], baseUrl, onSubmit, onDuplicate, onDismiss, onDelete }) => {
+export const Editor = ({ entry: init, lists, favorites, baseUrl, onSubmit, onDuplicate, onChangeFavorites, onDismiss, onDelete }) => {
     const classes = useStyles();
     const refs = useRef({ issueSelect: undefined });
     const [minimized, setMinimized] = useState(false);
@@ -39,28 +39,46 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
     const { id, project, issue, activity, hours, comments, spent_on } = entry || {};
     const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }));
 
-    const favorites = { projects: [], issues: [] }; // { projects: [920, 977], issues: [31592] };
+    const [rawProjects = [], rawIssues = [], rawActivities = []] = lists ?? [];
+    const [favoriteProjectIds = [], favoriteIssueIds = [], favoriteActivities = []] = favorites ?? [];
+
+    const sort = (list, favoriteIds) => {
+        const [favorites, rest] = list.reduce(([favorites, rest], item) => favoriteIds.includes(item.id) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
+        return [...favorites.map(item => ({ ...item, favorite: true })), ...rest];
+    };
+    const projects = useMemo(() => sort(rawProjects, favoriteProjectIds), [rawProjects, favoriteProjectIds]);
+    const issues = useMemo(() => sort(project ? rawIssues.filter(issue => issue.project.id === project.id) : rawIssues, favoriteIssueIds), [rawIssues, favoriteIssueIds, project]);
+    const activities = useMemo(() => sort(rawActivities, favoriteActivities), [rawActivities, favoriteActivities]);
 
     const propsTitle = {
         ...useDrag(({ down, offset: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, from: () => [0, y.get()] })()
     };
     const propsProject = {
         placeholder: 'Project', value: project, values: projects,
-        render: item => <div title={item.description}>{item.name}</div>,
-        stringlify: item => item.id,
-        linkify: item => `${baseUrl}/projects/${item.id}`,
-        filter: filter => item => filter.test(item.name),
-        favorite: item => favorites.projects.includes(item.id),
-        onChange: project => setEntry(entry => ({ ...entry, project, issue: undefined }))
+        render: project => <div title={project.description}>{project.name}</div>,
+        stringlify: project => project.id,
+        linkify: project => `${baseUrl}/projects/${project.id}`,
+        filter: filter => project => filter.test(project.name),
+        onChange: project => setEntry(entry => ({ ...entry, project, issue: undefined })),
+        onFavorite: project => onChangeFavorites([
+            project.favorite ? favoriteProjectIds.filter(id => id !== project.id) : favoriteProjectIds.concat(project.id),
+            favoriteIssueIds, favoriteActivities
+        ])
     };
     const propsIssue = {
         placeholder: 'Issue', value: issue, values: issues,
-        render: (item, short) => short ? (item.closed_on ? <strike>#{item.id} {item.subject}</strike> : <div>#{item.id} {item.subject}</div>) : <div title={item.description}>#{item.id} {item.project.name}<br />{item.subject}</div>,
-        stringlify: item => item.id,
-        linkify: item => `${baseUrl}/issues/${item.id}`,
-        filter: filter => item => filter.test(item.subject) || filter.test(item.id),
-        onChange: issue => setEntry(entry => ({ ...entry, issue, project: issue?.project || entry?.project })),
-        favorite: item => favorites.issues.includes(item.id),
+        render: (issue, short) => short ?
+            <div>#{issue.id} {issue.closed_on ? <strike>{issue.subject}</strike> : issue.subject}</div> :
+            <div title={issue.description}>#{issue.id} {issue.project.name}<br />{issue.closed_on ? <strike>{issue.subject}</strike> : issue.subject}</div>,
+        stringlify: issue => issue.id,
+        linkify: issue => `${baseUrl}/issues/${issue.id}`,
+        filter: filter => issue => filter.test(issue.subject) || filter.test(issue.id),
+        onChange: issue => setEntry(entry => ({ ...entry, issue, project: issue?.project })),
+        onFavorite: issue => onChangeFavorites([
+            favoriteProjectIds,
+            issue.favorite ? favoriteIssueIds.filter(id => id !== issue.id) : favoriteIssueIds.concat(issue.id),
+            favoriteActivities
+        ]),
         onMount: innerRefs => refs.current.issueSelect = innerRefs.current.input
     };
     const propsHours = {
@@ -69,10 +87,14 @@ export const Editor = ({ entry: init, lists: [projects, issues, activities], bas
     };
     const propsActivity = {
         placeholder: 'Activity', value: activity, values: activities,
-        render: item => <div>{item.name}</div>,
-        stringlify: item => item.id,
-        filter: filter => item => filter.test(item.name),
-        onChange: activity => setEntry(entry => ({ ...entry, activity }))
+        render: activity => <div>{activity.name}</div>,
+        stringlify: activity => activity.id,
+        filter: filter => activity => filter.test(activity.name),
+        onChange: activity => setEntry(entry => ({ ...entry, activity })),
+        onFavorite: activity => onChangeFavorites([
+            favoriteProjectIds, favoriteIssueIds,
+            activity.favorite ? favoriteActivities.filter(id => id !== activity.id) : favoriteActivities.concat(activity.id)
+        ]),
     };
     const propsComments = {
         placeholder: 'Comments', value: comments || '',

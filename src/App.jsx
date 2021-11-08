@@ -232,7 +232,6 @@ const App = () => {
     const propsRefreshButton = ({
         ref: ref => refs.current.refreshButton = ref, title: 'Refresh',
         onClick: async () => {
-            debugger;
             const refreshEntries = async () => {
                 const { numberOfDays } = settings;
                 const fromDay = dayjs().subtract(numberOfDays, 'day').format('YYYY-MM-DD');
@@ -315,7 +314,7 @@ const App = () => {
     // });
 
     const propsEditor = ({
-        entry, lists, baseUrl: settings?.redmine?.baseUrl,
+        entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites,
         onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
             try {
                 if (id) { // update
@@ -352,6 +351,14 @@ const App = () => {
             }
         },
         onDuplicate: (entry) => setEntry(entry),
+        onChangeFavorites: async (favorites) => {
+            try {
+                await storage.set({ favorites });
+                setSettings(settings => ({ ...settings, favorites }));
+            } catch (error) {
+                raiseError(error);
+            }
+        },
         onDismiss: () => setEntry() || refs.current.addEntryButton.focus()
     });
 
