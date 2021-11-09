@@ -43,7 +43,7 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
 
 const Entry = ({ project, issue, activity, hours, sumHours, comments, baseUrl, disabled, onSelect }) => {
     const classes = useStyles();
-    const url = issue && `${baseUrl}/projects/${issue.id}`;
+    const url = issue && `${baseUrl}/issues/${issue.id}`;
     const propsGrayCircle = ({
         cx: 25, cy: 25, r: 20, strokeWidth: 6, fill: 'none'
     });
