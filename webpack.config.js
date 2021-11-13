@@ -32,7 +32,7 @@ module.exports = (env, argv) => [{
             }
         ]
     },
-    devtool: argv.mode === 'development' ? 'inline-source-map' : 'source-map',
+    devtool: argv.mode === 'development' ? 'inline-source-map' : false,
     performance: {
         maxAssetSize: 600 * 1024, // default: 250 KB
         maxEntrypointSize: 1.2 * 1024 * 1024 // default: 250 KB
