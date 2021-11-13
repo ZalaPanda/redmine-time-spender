@@ -16,7 +16,7 @@ import { Checkbox } from './atoms/Checkbox.jsx';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     options: {
-        padding: 20,
+        padding: [14, 20],
         '&>hr': { margin: [10, 0], border: 0, borderBottom: [1, 'solid', theme.border] },
         '&>section': {
             display: 'flex', alignItems: 'center',
@@ -26,7 +26,7 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
             '&>input[type=number]': { flexGrow: 0, width: 40, textAlign: 'center' },
             '&>div[tabindex]': { paddingRight: 10 },
             '&[hidden]': { display: 'none' },
-            '&>a': {color: theme.special }
+            '&>a': { color: theme.special }
         },
         '&>section:focus-within': {
             '&>svg': { color: theme.field.focus }, // label with svg icon
@@ -108,7 +108,7 @@ const Options = () => {
         ref: ref => refs.current.resetButton = ref,
         onClick: async _ => {
             try {
-                await cookie(baseUrl).permission.remove(); // remove permission to redmine cookies
+                // await cookie(baseUrl).permission.remove(); // remove permission to redmine cookies
                 const database = createUnentryptedDatabase();
                 await database.open();
                 database && Promise.all([ // purge everything from database
@@ -194,7 +194,7 @@ const Options = () => {
             </Collapsible>
             {!baseUrl && <button {...propsSetupButton}>SETUP</button>}
             {baseUrl && <>
-                <span>Redmine is linked with extension.</span>
+                <label>Redmine is linked with extension.</label>
                 <button {...propsResetButton}>RESET</button>
                 <hr />
                 <section>
@@ -203,9 +203,7 @@ const Options = () => {
                 </section>
                 <section>
                     <label>Work hours:</label>
-                    <input {...propsWorkHoursStartInput} />
-                    <span>-</span>
-                    <input {...propsWorkHoursEndInput} />
+                    <input {...propsWorkHoursStartInput} />-<input {...propsWorkHoursEndInput} />
                 </section>
                 <section>
                     <label>Auto refresh:</label>

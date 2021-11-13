@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Globals } from '@react-spring/web';
 import { ThemeProvider, createUseStyles } from 'react-jss';
-import { FiRefreshCw, FiClock, FiSettings, FiCoffee } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiSettings, FiHome, FiCoffee } from 'react-icons/fi';
 // import { loremIpsum } from 'lorem-ipsum';
 
 import { themes } from './themes.js';
@@ -30,7 +30,7 @@ export const useGlobalStyles = createUseStyles({
     '@global': {
         '*': { fontSize: 16, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
         'html': { scrollBehavior: 'smooth' },
-        'body': { width: 460, minHeight: 400, margin: 4 },
+        'body': { width: 460, minHeight: 380, margin: [10, 8] },
         'input, textarea, button': {
             color: 'unset', backgroundColor: 'transparent',
             border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
@@ -40,6 +40,7 @@ export const useGlobalStyles = createUseStyles({
         'button': {
             textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4
         },
+        'small': { fontSize: 12 },
         'a': {
             fontWeight: 'bold', color: 'unset', textDecoration: 'none',
             '&:visited': { color: 'unset' },
@@ -72,7 +73,7 @@ export const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme
         // [scrollbar]
         '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.mark },
     },
-    title: {
+    header: {
         display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
         '&>input': { flexGrow: 1 }
     }
@@ -122,7 +123,7 @@ export const defaultSettings = {
 const App = () => {
     useGlobalStyles();
 
-    const refs = useRef({ addEntryButton: undefined, addTaskInput: undefined, refreshButton: undefined, optionsButton: undefined });
+    const refs = useRef({ addEntryButton: undefined, refreshButton: undefined });
     const raiseError = useRaise('error');
 
     /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
@@ -217,7 +218,7 @@ const App = () => {
     });
 
     const propsAddTaskInput = ({
-        ref: ref => refs.current.addTaskInput = ref, placeholder: 'Add task',
+        placeholder: 'Add task',
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
             if (which === 13) {
@@ -227,6 +228,14 @@ const App = () => {
                 setTasks(tasks => [task, ...tasks]);
                 event.target.value = '';
             }
+        }
+    });
+
+    const propsHomeButton = ({
+        title: settings?.redmine?.baseUrl, disabled: !settings,
+        onClick: _ => {
+            const url = settings?.redmine?.baseUrl;
+            chrome.tabs.create({ url });
         }
     });
 
@@ -284,7 +293,7 @@ const App = () => {
     });
 
     const propsOptionsButton = ({
-        ref: ref => refs.current.optionsButton = ref, title: 'Options',
+        title: 'Options',
         onClick: _ => chrome.runtime.openOptionsPage()
     });
 
@@ -395,9 +404,10 @@ const App = () => {
     return <ThemeProvider theme={theme}>
         <Editor {...propsEditor} />
         <Toaster />
-        <div className={classes.title}>
+        <div className={classes.header}>
             <button {...propsAddEntryButton}><FiClock /></button>
             <input {...propsAddTaskInput} />
+            <button {...propsHomeButton}><FiHome /></button>
             <button {...propsRefreshButton}><FiRefreshCw /></button>
             <button {...propsOptionsButton}><FiSettings /></button>
             {/* <button {...propsCipherButton}><FiCoffee /></button> */}
@@ -405,7 +415,6 @@ const App = () => {
         <Bar />
         {filteredTasks.map(task => <Task {...propsTask(task)} />)}
         {days.map(day => <Day {...propsDay(day)} />)}
-        {settings && settings.lastRefresh}
     </ThemeProvider>;
 };
 
