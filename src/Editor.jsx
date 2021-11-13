@@ -87,7 +87,7 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, onSubmit, onDup
     };
     const propsActivity = {
         placeholder: 'Activity', value: activity, values: activities,
-        render: activity => <div>{activity.active ? <strike>{activity.name}</strike> : activity.name}</div>,
+        render: activity => <div>{activity.active === false ? <strike>{activity.name}</strike> : activity.name}</div>,
         stringlify: activity => activity.id,
         filter: filter => activity => filter.test(activity.name),
         onChange: activity => setEntry(entry => ({ ...entry, activity })),
