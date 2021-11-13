@@ -22,13 +22,14 @@ Basically it is as secure as any other cookie in the browser.
 
 Roadmap
 -------
-* create options page with help (+screenshots)
-* fix sync issue- #2
-* publish 1.0 🍰
+- [X] create options page with help (+screenshots)
+- [X] fix sync issue- #2
+- [X] filter issues based on selected project
+- [X] favorite projects/issues/activities
+- [X] periodic auto-refresh
+- [ ] beta test
+- [ ] publish 1.0 🍰
 
 Future plans
 ------------
-* filter issues based on selected project (Laci)
 * quick search in tasks and time entries
-* favorite projects/issues/activities
-* periodic auto-refresh in the background
