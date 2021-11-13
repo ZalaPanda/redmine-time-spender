@@ -32,9 +32,7 @@
         }
     },
     "permissions": [
-        "storage"
-    ],
-    "optional_permissions": [
+        "storage",
         "cookies"
     ],
     "host_permissions": [
