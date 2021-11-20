@@ -38,7 +38,8 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         '&>div': { position: 'absolute', display: 'flex', width: '100%', height: '100%' }
     },
     ellapsed: { backgroundColor: theme.danger, margin: [4, 0], boxSizing: 'border-box' },
-    spent: { backgroundColor: theme.success, border: [1, 'solid', theme.card.border], boxSizing: 'border-box' }
+    spent: { backgroundColor: theme.success, border: [1, 'solid', theme.card.border], boxSizing: 'border-box' },
+    note: { margin: 4 }
 }));
 
 const Entry = ({ project, issue, activity, hours, sumHours, comments, baseUrl, disabled, onSelect }) => {
@@ -101,6 +102,7 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
         </div>
         <Collapsible open={selected}>
             {entries.map(entry => <Entry key={entry.id} {...entry} baseUrl={baseUrl} sumHours={sumHours} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
+            {!entries.length && <small className={classes.note}>No time entries</small>}
         </Collapsible>
     </>
 };
