@@ -5,8 +5,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = (env, argv) => [{
     entry: {
         popup: './src/popup.js',
-        options: './src/options.js',
-        background: './src/background.js'
+        options: './src/options.js'
     },
     output: {
         path: path.join(__dirname, 'dist'),
@@ -33,10 +32,6 @@ module.exports = (env, argv) => [{
         ]
     },
     devtool: argv.mode === 'development' ? 'inline-source-map' : false,
-    performance: {
-        maxAssetSize: 600 * 1024, // default: 250 KB
-        maxEntrypointSize: 1.2 * 1024 * 1024 // default: 250 KB
-    },
     optimization: {
         splitChunks: {
             chunks: 'all',
@@ -61,4 +56,13 @@ module.exports = (env, argv) => [{
             }
         }
     }
+}, {
+    entry: {
+        background: './src/background.js'
+    },
+    output: {
+        path: path.join(__dirname, 'dist'),
+        filename: '[name].js'
+    },
+    devtool: argv.mode === 'development' ? 'inline-source-map' : false,
 }];
