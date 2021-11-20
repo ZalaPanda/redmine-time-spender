@@ -30,7 +30,8 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         },
         '&>section:focus-within': {
             '&>svg': { color: theme.field.focus }, // label with svg icon
-        }
+        },
+        '&>button': { border: [1, 'solid', theme.border] }
     }
 }));
 
@@ -194,7 +195,7 @@ const Options = () => {
             </Collapsible>
             {!baseUrl && <button {...propsSetupButton}>SETUP</button>}
             {baseUrl && <>
-                <label>Redmine is linked with extension.</label>
+                <label>Redmine is linked with extension.</label><br />
                 <button {...propsResetButton}>RESET</button>
                 <hr />
                 <section>
