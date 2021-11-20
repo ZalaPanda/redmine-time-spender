@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Globals } from '@react-spring/web';
 import { ThemeProvider, createUseStyles } from 'react-jss';
-import { FiRefreshCw, FiClock, FiSettings, FiHome, FiCoffee } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiSettings, FiHome, FiCoffee, FiSearch } from 'react-icons/fi';
 // import { loremIpsum } from 'lorem-ipsum';
 
 import { themes } from './themes.js';
@@ -75,6 +75,7 @@ export const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme
     },
     header: {
         display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
+        '&>button[active]': { backgroundColor: theme.button.active },
         '&>input': { flexGrow: 1 }
     }
 }));
@@ -123,7 +124,7 @@ export const defaultSettings = {
 const App = () => {
     useGlobalStyles();
 
-    const refs = useRef({ addEntryButton: undefined, refreshButton: undefined });
+    const refs = useRef({ addEntryButton: undefined, refreshButton: undefined, searchInput: undefined });
     const raiseError = useRaise('error');
 
     /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
@@ -161,11 +162,21 @@ const App = () => {
     const [lists, setLists] = useState([[], [], []]); // projects, issues, activities
 
     const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
+    const [search, setSearch] = useState();
+    const searching = search !== undefined;
     const [today, setToday] = useState(days[0]);
     const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
 
-    const filteredTasks = useMemo(() => tasks.filter(({ closed_on }) => !closed_on || dayjs(today).isSame(closed_on, 'day')), [tasks, today]);
-    const filteredEntries = useMemo(() => entries.reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {}), [entries]);
+    const filteredTasks = useMemo(() => {
+        const exp = searching && RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
+        return tasks.filter(({ value, closed_on }) => exp ? exp.test(value) : !closed_on || dayjs(today).isSame(closed_on, 'day'));
+    }, [tasks, today, search, searching]);
+    const filteredEntries = useMemo(() => {
+        const exp = searching && RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
+        return entries
+            .filter(({ project, issue, activity, comments }) => !exp || exp.test(comments) || exp.test(project?.name) || exp.test(issue?.subject) || exp.test(issue?.id) || exp.test(activity?.name))
+            .reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {})
+    }, [entries, search, searching]);
 
     useAsyncEffect(async ({ aborted }) => { // init redmine and database with cookie key
         if (!settings?.redmine) return;
@@ -217,8 +228,13 @@ const App = () => {
         onClick: _ => setEntry({ spent_on: today })
     });
 
+    const propsToggleSearchButton = ({
+        title: 'Global search', active: searching ? '' : null,
+        onClick: _ => setSearch(search => search === undefined ? '' : undefined)
+    })
+
     const propsAddTaskInput = ({
-        placeholder: 'Add task',
+        placeholder: 'Add task', hidden: search !== undefined,
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
             if (which === 13) {
@@ -229,6 +245,11 @@ const App = () => {
                 event.target.value = '';
             }
         }
+    });
+
+    const propsSearchInput = ({
+        ref: ref => refs.current.searchInput = ref, placeholder: 'Search', hidden: search === undefined,
+        onKeyDown: (event) => event.which === 13 && setSearch(event.target.value)
     });
 
     const propsHomeButton = ({
@@ -395,18 +416,20 @@ const App = () => {
     });
 
     const propsDay = (day) => ({
-        day, key: day, selected: day === today, entries: filteredEntries[day] || [], workHours: settings?.workHours, baseUrl: settings?.redmine?.baseUrl,
+        day, key: day, selected: search !== undefined || day === today, entries: filteredEntries[day] || [], workHours: settings?.workHours, baseUrl: settings?.redmine?.baseUrl,
         onSelectDay: () => setToday(day === today ? undefined : day),
         onSelectEntry: (entry) => () => setEntry(entry)
     });
 
-    useEffect(() => refs.current.addEntryButton?.focus(), []); // focus on add entry button
+    useEffect(() => searching ? refs.current.searchInput?.focus() : refs.current.addEntryButton?.focus(), [searching]); // focus on add entry button / search input
     return <ThemeProvider theme={theme}>
         <Editor {...propsEditor} />
         <Toaster />
         <div className={classes.header}>
+            <button {...propsToggleSearchButton}><FiSearch /></button>
             <button {...propsAddEntryButton}><FiClock /></button>
             <input {...propsAddTaskInput} />
+            <input {...propsSearchInput} />
             <button {...propsHomeButton}><FiHome /></button>
             <button {...propsRefreshButton}><FiRefreshCw /></button>
             <button {...propsOptionsButton}><FiSettings /></button>
