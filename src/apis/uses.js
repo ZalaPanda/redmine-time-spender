@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export const useRaise = (type) => (detail) => window.dispatchEvent(new CustomEvent(type, { detail }));
 export const useListen = (type, callback = (_detail) => { }) => useEffect(() => {
@@ -11,3 +11,12 @@ export const useAsyncEffect = (effect = async (_signal) => { }, deps = undefined
     effect && effect(controller.signal);
     return () => controller.abort();
 }, deps);
+export const useTimeoutState = (initialState) => {
+    const handle = useRef();
+    const [value, setInnerValue] = useState(initialState);
+    const setValue = (value, ms = 0) => {
+        clearTimeout(handle.current);
+        handle.current = setTimeout(() => setInnerValue(value), ms);
+    };
+    return [value, setValue];
+};

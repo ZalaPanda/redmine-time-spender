@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Globals } from '@react-spring/web';
 import { ThemeProvider, createUseStyles } from 'react-jss';
-import { FiRefreshCw, FiClock, FiSettings, FiHome, FiCoffee, FiSearch } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiSettings, FiHome, FiCoffee } from 'react-icons/fi';
 // import { loremIpsum } from 'lorem-ipsum';
 
 import { themes } from './themes.js';
 import { createCryptoApi, convertHexToBin } from './apis/crypto.js';
 import { createRedmineApi } from './apis/redmine.js';
 import { createEntryptedDatabase } from './apis/database.js';
-import { useAsyncEffect, useRaise } from './apis/uses.js';
+import { useAsyncEffect, useRaise, useTimeoutState } from './apis/uses.js';
 
 import dayjs from 'dayjs';
 
@@ -162,7 +162,7 @@ const App = () => {
     const [lists, setLists] = useState([[], [], []]); // projects, issues, activities
 
     const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
-    const [search, setSearch] = useState();
+    const [search, setSearch] = useTimeoutState();
     const searching = search !== undefined;
     const [today, setToday] = useState(days[0]);
     const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
@@ -223,15 +223,19 @@ const App = () => {
         await loadLists({ aborted });
     }, [database]);
 
+    const propsTitle = ({
+        className: classes.header,
+        onKeyDown: (event) => {
+            const { key, ctrlKey } = event;
+            if (search === undefined && ctrlKey && key === 'f') setSearch('') || event.preventDefault(); // turn on search mode
+            if (search !== undefined && key === 'Escape') setSearch(undefined) || event.preventDefault(); // turn off search mode
+        }
+    });
+
     const propsAddEntryButton = ({
         ref: ref => refs.current.addEntryButton = ref, title: 'Add time entry',
         onClick: _ => setEntry({ spent_on: today })
     });
-
-    const propsToggleSearchButton = ({
-        title: 'Global search', active: searching ? '' : null,
-        onClick: _ => setSearch(search => search === undefined ? '' : undefined)
-    })
 
     const propsAddTaskInput = ({
         placeholder: 'Add task', hidden: search !== undefined,
@@ -249,7 +253,7 @@ const App = () => {
 
     const propsSearchInput = ({
         ref: ref => refs.current.searchInput = ref, placeholder: 'Search', hidden: search === undefined,
-        onKeyDown: (event) => event.which === 13 && setSearch(event.target.value)
+        onChange: (event) => setSearch(event.target.value, 400) // wait 400ms before the change
     });
 
     const propsHomeButton = ({
@@ -425,8 +429,7 @@ const App = () => {
     return <ThemeProvider theme={theme}>
         <Editor {...propsEditor} />
         <Toaster />
-        <div className={classes.header}>
-            <button {...propsToggleSearchButton}><FiSearch /></button>
+        <div {...propsTitle}>
             <button {...propsAddEntryButton}><FiClock /></button>
             <input {...propsAddTaskInput} />
             <input {...propsSearchInput} />
