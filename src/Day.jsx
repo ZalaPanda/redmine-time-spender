@@ -65,7 +65,7 @@ const Entry = ({ project, issue, activity, hours, sumHours, comments, baseUrl, d
                 <circle {...propsGreenCircle} />
             </svg>
             <button disabled={disabled} onClick={onSelect}>
-                <b>{hours}h</b>
+                <b>{+hours.toFixed(2)}h</b>
                 <FiEdit />
             </button>
         </div>
@@ -96,7 +96,7 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
             <div className={classes.bar}>
                 <div><div className={classes.ellapsed} style={{ width: `${ellapsed / sumHours * 100}%` }}></div></div>
                 <div>{entries && entries.map(({ id, hours, activity }) =>
-                    <div key={id} className={classes.spent} title={`${hours}h ${activity.name || '?'}`} style={{ width: `${hours / sumHours * 100}%` }}></div>)}
+                    <div key={id} className={classes.spent} title={`${+hours.toFixed(2)}h ${activity.name || '?'}`} style={{ width: `${hours / sumHours * 100}%` }}></div>)}
                 </div>
             </div>
         </div>
