@@ -10,8 +10,6 @@ Spend less time with Redmine time tracking.
 * check your time entries with a simple click/hotkey
 * change or create a copy of a time entry with the speed of light
 
-The plugin is still **under development** but it can already be used!
-
 Security
 --------
 
@@ -27,9 +25,10 @@ Roadmap
 - [X] filter issues based on selected project
 - [X] favorite projects/issues/activities
 - [X] periodic auto-refresh
-- [ ] beta test
-- [ ] publish 1.0 🍰
+- [X] quick search (`CTRL`+`F`) in tasks and time entries
+- [X] beta test
+- [X] publish 1.0 🍰
 
 Future plans
 ------------
-* quick search in tasks and time entries
+* what's new page
