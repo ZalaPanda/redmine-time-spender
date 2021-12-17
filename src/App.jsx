@@ -227,7 +227,7 @@ const App = () => {
         className: classes.header,
         onKeyDown: (event) => {
             const { key, ctrlKey } = event;
-            if (search === undefined && ctrlKey && key === 'f') setSearch('') || event.preventDefault(); // turn on search mode
+            if (ctrlKey && key === 'f') setSearch('') || event.preventDefault(); // turn on search mode
             if (search !== undefined && key === 'Escape') setSearch(undefined) || event.preventDefault(); // turn off search mode
         }
     });
