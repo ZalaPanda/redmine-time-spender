@@ -6,7 +6,8 @@
  *  numberOfDays: number,
  *  workHours: [start: number, end: number],
  *  autoRefresh: string,
- *  skipAnimation: boolean
+ *  skipAnimation: boolean,
+ *  hideInactive: { issues: boolean, activities: boolean }
  * }} Settings
  */
 

@@ -6,7 +6,7 @@ export const themes = {
         danger: '#F7695F',
         success: '#4CAF50',
         special: '#116699',
-        muted: '#7F7F7F',
+        muted: '#6F6F6F',
         shadow: '#8f9eadEE',
         mark: '#628DB633',
         button: { hover: '#11669933', active: '#11669966' },

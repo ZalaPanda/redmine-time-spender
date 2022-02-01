@@ -4,7 +4,7 @@ import { createUseStyles } from 'react-jss';
 import { useListen } from './apis/uses.js';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    bar: { height: 2, margin: [-2, 0], backgroundColor: theme.muted, borderRadius: 2 }
+    bar: { height: 3, margin: [-2, 0], backgroundColor: theme.muted, borderRadius: 2 }
 }));
 
 export const Bar = () => {

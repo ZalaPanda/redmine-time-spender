@@ -18,7 +18,7 @@ import { Task } from './Task.jsx';
 import { Toaster } from './Toaster.jsx';
 import { Bar } from './Bar.jsx';
 
-export const useGlobalStyles = createUseStyles({
+export const useGlobalStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     '@font-face': [{
         fontFamily: 'WorkSans',
         src: 'url("font/work-sans-v11-latin-500.woff2") format("woff2")',
@@ -28,9 +28,8 @@ export const useGlobalStyles = createUseStyles({
         src: 'url("font/work-sans-v11-latin-700.woff2") format("woff2")',
     }],
     '@global': {
-        '*': { fontSize: 16, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'] },
-        'html': { scrollBehavior: 'smooth' },
-        'body': { width: 460, minHeight: 380, margin: [10, 8] },
+        '*': { fontSize: 16, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'], lineHeight: theme.lineHeight },
+        'html': { backgroundColor: theme.bg, color: theme.text, scrollBehavior: 'smooth' },
         'input, textarea, button': {
             color: 'unset', backgroundColor: 'transparent',
             border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
@@ -38,7 +37,9 @@ export const useGlobalStyles = createUseStyles({
             '&:disabled': { filter: 'opacity(0.6)', cursor: 'auto' }
         },
         'button': {
-            textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4
+            textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4,
+            '&:hover, &:focus': { backgroundColor: theme.button.hover },
+            '&:active': { backgroundColor: theme.button.active }
         },
         'small': { fontSize: 12 },
         'a': {
@@ -46,32 +47,26 @@ export const useGlobalStyles = createUseStyles({
             '&:visited': { color: 'unset' },
             '&:hover, &:focus': { textDecoration: 'underline' }
         },
+        'b': { fontSize: 'inherit' },
         'svg': { margin: 2, verticalAlign: 'middle', strokeWidth: 2.5 },
         // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
         '::-webkit-scrollbar': { width: 8, height: 8 },
         '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
-        '::-webkit-scrollbar-thumb': { borderRadius: 4, border: [2, 'solid', 'currentcolor'] },
+        '::-webkit-scrollbar-thumb': { borderRadius: 4, backgroundColor: theme.mark, border: [2, 'solid', theme.bg] },
         '::-webkit-scrollbar-corner': { backgroundColor: 'transparent' },
         '::-webkit-resizer': { backgroundColor: 'transparent' },
+        // [selection]
+        '::selection': { backgroundColor: theme.mark },
         // [number input] remove inc/dec buttons
         'input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none' },
         // [date input] remove button
         '::-webkit-calendar-picker-indicator': { background: 'none' }
     },
-});
+}));
 
-export const useThemedStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
+const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     '@global': {
-        '*': { lineHeight: theme.lineHeight },
-        'html': { backgroundColor: theme.bg, color: theme.text },
-        'button': {
-            '&:hover, &:focus': { backgroundColor: theme.button.hover },
-            '&:active': { backgroundColor: theme.button.active }
-        },
-        // [selection]
-        '::selection': { backgroundColor: theme.mark },
-        // [scrollbar]
-        '::-webkit-scrollbar-thumb': { borderColor: theme.bg, backgroundColor: theme.mark },
+        'body': { width: 460, minHeight: 380, margin: [10, 8] }
     },
     header: {
         display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
@@ -118,12 +113,11 @@ export const defaultSettings = {
     numberOfDays: 7,
     workHours: [8, 16],
     skipAnimation: false,
-    autoRefresh: false
+    autoRefresh: false,
+    hideInactive: { issues: false, activities: false }
 };
 
 const App = () => {
-    useGlobalStyles();
-
     const refs = useRef({ addEntryButton: undefined, refreshButton: undefined, searchInput: undefined });
     const raiseError = useRaise('error');
 
@@ -138,7 +132,8 @@ const App = () => {
 
     /** @type {[Theme, React.Dispatch<(prevState: Theme) => Theme>]} */
     const [theme, setTheme] = useState({ ...themes['dark'], lineHeight: 1.6 });
-    const classes = useThemedStyles({ theme });
+    const classes = useStyles({ theme });
+    useGlobalStyles({ theme });
 
     useEffect(() => { // update theme
         if (!settings?.theme) return;
@@ -349,7 +344,7 @@ const App = () => {
     // });
 
     const propsEditor = ({
-        entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites,
+        entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive,
         onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
             try {
                 if (id) { // update

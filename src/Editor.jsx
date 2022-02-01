@@ -31,7 +31,7 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
     }
 }));
 
-export const Editor = ({ entry: init, lists, favorites, baseUrl, onSubmit, onDuplicate, onChangeFavorites, onDismiss, onDelete }) => {
+export const Editor = ({ entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onChangeFavorites, onDismiss, onDelete }) => {
     const classes = useStyles();
     const refs = useRef({ issueSelect: undefined });
     const [minimized, setMinimized] = useState(false);
@@ -65,6 +65,7 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, onSubmit, onDup
             favoriteIssueIds, favoriteActivities
         ])
     };
+    console.log({ hideInactive });
     const propsIssue = {
         placeholder: 'Issue', value: issue, values: issues,
         render: (issue, short) => short ?
@@ -72,7 +73,9 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, onSubmit, onDup
             <div title={issue.description}>#{issue.id} {issue.project.name}<br />{issue.closed_on ? <strike>{issue.subject}</strike> : issue.subject}</div>,
         stringlify: issue => issue.id,
         linkify: issue => `${baseUrl}/issues/${issue.id}`,
-        filter: filter => issue => filter.test(issue.subject) || filter.test(issue.id),
+        filter: hideInactive?.issues ?
+            filter => issue => !issue.closed_on && (filter.test(issue.subject) || filter.test(issue.id)) :
+            filter => issue => filter.test(issue.subject) || filter.test(issue.id),
         onChange: issue => setEntry(entry => ({ ...entry, issue, project: issue?.project })),
         onFavorite: issue => onChangeFavorites([
             favoriteProjectIds,
@@ -89,7 +92,9 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, onSubmit, onDup
         placeholder: 'Activity', value: activity, values: activities,
         render: activity => <div>{activity.active === false ? <strike>{activity.name}</strike> : activity.name}</div>,
         stringlify: activity => activity.id,
-        filter: filter => activity => filter.test(activity.name),
+        filter: hideInactive?.activities ?
+            filter => activity => activity.active && filter.test(activity.name) :
+            filter => activity => filter.test(activity.name),
         onChange: activity => setEntry(entry => ({ ...entry, activity })),
         onFavorite: activity => onChangeFavorites([
             favoriteProjectIds, favoriteIssueIds,

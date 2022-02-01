@@ -9,16 +9,16 @@ import { createRedmineApi } from './apis/redmine.js';
 import { createUnentryptedDatabase } from './apis/database.js';
 import { useAsyncEffect, useRaise } from './apis/uses.js';
 
-import { useGlobalStyles, useThemedStyles, storage, cookie, defaultSettings } from './App.jsx';
+import { useGlobalStyles, storage, cookie, defaultSettings } from './App.jsx';
 import { Toaster } from './Toaster.jsx';
 import { Collapsible } from './atoms/Collapsible.jsx';
 import { Checkbox } from './atoms/Checkbox.jsx';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    options: {
-        padding: [14, 20],
-        '&>hr': { margin: [10, 0], border: 0, borderBottom: [1, 'solid', theme.border] },
-        '&>section': {
+    '@global': {
+        'body': { minHeight: 380, padding: [10, 14] },
+        'hr': { margin: [10, 0], border: 0, borderBottom: [1, 'solid', theme.border] },
+        'section': {
             display: 'flex', alignItems: 'center',
             '&>svg': { color: theme.field.text },
             '&>label': { color: theme.muted, minWidth: 160 },
@@ -28,16 +28,15 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
             '&[hidden]': { display: 'none' },
             '&>a': { color: theme.special }
         },
-        '&>section:focus-within': {
+        'section:focus-within': {
             '&>svg': { color: theme.field.focus }, // label with svg icon
         },
-        '&>button': { border: [1, 'solid', theme.border] }
-    }
+        'button': { border: [1, 'solid', theme.border] }
+    },
+    checkbox: { cursor: 'pointer' }
 }));
 
 const Options = () => {
-    useGlobalStyles();
-
     const refs = useRef({ baseUrlInput: undefined, apiKeyInput: undefined, setupButton: undefined, resetButton: undefined })
     const raiseError = useRaise('error');
 
@@ -52,7 +51,7 @@ const Options = () => {
 
     /** @type {[Theme, React.Dispatch<(prevState: Theme) => Theme>]} */
     const [theme, setTheme] = useState({ ...themes['dark'], lineHeight: 1.6 });
-    useThemedStyles({ theme });
+    useGlobalStyles({ theme });
     const classes = useStyles({ theme });
 
     useEffect(() => { // update theme
@@ -70,14 +69,14 @@ const Options = () => {
     /** @type {[string, React.Dispatch<(prevState: string) => string>]} */
     const [help, setHelp] = useState();
 
-    const { redmine: { baseUrl } = {}, theme: { isDark, lineHeight } = {}, numberOfDays, workHours: [workHoursStart, workHoursEnd], skipAnimation, autoRefresh } = settings ?? defaultSettings;
+    const { redmine: { baseUrl } = {}, theme: { isDark, lineHeight } = {}, numberOfDays, workHours: [workHoursStart, workHoursEnd], skipAnimation, autoRefresh, hideInactive } = settings ?? defaultSettings;
     const propsBaseUrlInput = {
-        ref: ref => refs.current.baseUrlInput = ref, name: 'BaseUrl', placeholder: 'Redmine URL', defaultValue: baseUrl, disabled: !!baseUrl,
+        ref: ref => refs.current.baseUrlInput = ref, name: 'BaseUrl', placeholder: 'Step 1 > Redmine URL', defaultValue: baseUrl, disabled: !!baseUrl,
         onFocus: event => event.target.select() || setHelp(event.target.name), onBlur: _ => setHelp(),
         onKeyDown: event => event.which === 13 && refs.current.apiKeyInput.focus()
     };
     const propsApiKeyInput = {
-        ref: ref => refs.current.apiKeyInput = ref, name: 'ApiKey', placeholder: 'API key', defaultValue: baseUrl ? '#'.repeat(40) : '', type: 'password', disabled: !!baseUrl,
+        ref: ref => refs.current.apiKeyInput = ref, name: 'ApiKey', placeholder: 'Step 2 > API key', defaultValue: baseUrl ? '#'.repeat(40) : '', type: 'password', disabled: !!baseUrl,
         onFocus: event => event.target.select() || setHelp(event.target.name), onBlur: _ => setHelp(),
         onKeyDown: event => event.which === 13 && refs.current.setupButton.focus()
     };
@@ -149,20 +148,28 @@ const Options = () => {
         onChange: event => changeSettings({ workHours: [workHoursStart, Number(event.target.value) || workHoursEnd] })
     };
     const propsAutoRefreshRadio = value => ({
-        value, checked: autoRefresh === value,
+        value, checked: autoRefresh === value, className: classes.checkbox,
         onChange: autoRefresh => changeSettings({ autoRefresh })
     });
     const propsThemeIsDarkRadio = value => ({
-        value, checked: isDark === value,
+        value, checked: isDark === value, className: classes.checkbox,
         onChange: isDark => changeSettings({ theme: { isDark, lineHeight } })
     })
     const propsLineHeightRadio = value => ({
-        value, checked: lineHeight === value,
+        value, checked: lineHeight === value, className: classes.checkbox,
         onChange: lineHeight => changeSettings({ theme: { isDark, lineHeight } })
     });
     const propsSkipAnimationCheckbox = {
-        checked: skipAnimation,
+        checked: skipAnimation, className: classes.checkbox,
         onChange: skipAnimation => changeSettings({ skipAnimation })
+    };
+    const propsHideInactiveIssuesCheckbox = {
+        checked: hideInactive.issues, className: classes.checkbox,
+        onChange: issues => changeSettings({ hideInactive: { ...hideInactive, issues } })
+    };
+    const propsHideInactiveActivitiesCheckbox = {
+        checked: hideInactive.activities, className: classes.checkbox,
+        onChange: activities => changeSettings({ hideInactive: { ...hideInactive, activities } })
     };
     const propsExtensionsShortcutsLink = {
         href: 'chrome://extensions/shortcuts', target: '_blank',
@@ -174,65 +181,68 @@ const Options = () => {
 
     return <ThemeProvider theme={theme}>
         <Toaster />
-        <div className={classes.options}>
-            <section>
-                <FiUnlock />
-                <input {...propsBaseUrlInput} />
-                {/* <FiHelpCircle {...propsHelpToggle('BaseUrl')} /> */}
-            </section>
-            <Collapsible open={help === 'BaseUrl'}>
-                The base URL of the used Redmine:
-                <img src={'img/Redmine-URL.png'} />
-            </Collapsible>
-            <section>
-                <FiKey />
-                <input {...propsApiKeyInput} />
-                {/* <FiHelpCircle {...propsHelpToggle('ApiKey')} /> */}
-            </section>
-            <Collapsible open={help === 'ApiKey'}>
-                The <b>API access key</b> under <b>My account</b> in Redmine:
-                <img src={'img/API-key.png'} />
-            </Collapsible>
-            {!baseUrl && <button {...propsSetupButton}>SETUP</button>}
-            {baseUrl && <>
-                <label>Redmine is linked with extension.</label><br />
-                <button {...propsResetButton}>RESET</button>
-                <hr />
-                <section>
-                    <label>Number of days:</label>
-                    <input {...propsNumberOfDaysInput} />
-                </section>
-                <section>
-                    <label>Work hours:</label>
-                    <input {...propsWorkHoursStartInput} />-<input {...propsWorkHoursEndInput} />
-                </section>
-                <section>
-                    <label>Auto refresh:</label>
-                    <Checkbox {...propsAutoRefreshRadio(false)}>Off</Checkbox>
-                    <Checkbox {...propsAutoRefreshRadio('hour')}>Hourly</Checkbox>
-                    <Checkbox {...propsAutoRefreshRadio('day')}>Daily</Checkbox>
-                </section>
-                <section>
-                    <label>Keyboard shortcut:</label>
-                    <a {...propsExtensionsShortcutsLink}>chrome://extensions/shortcuts</a>
-                </section>
-            </>}
+        <section>
+            <FiUnlock />
+            <input {...propsBaseUrlInput} />
+            {/* <FiHelpCircle {...propsHelpToggle('BaseUrl')} /> */}
+        </section>
+        <Collapsible open={help === 'BaseUrl'}>
+            <small>The <b>base URL</b> of the used Redmine:</small>
+            <img src={'img/Redmine-URL.png'} />
+        </Collapsible>
+        <section>
+            <FiKey />
+            <input {...propsApiKeyInput} />
+            {/* <FiHelpCircle {...propsHelpToggle('ApiKey')} /> */}
+        </section>
+        <Collapsible open={help === 'ApiKey'}>
+            <small>The <b>API access key</b> under <b>My account</b> in Redmine:</small>
+            <img src={'img/API-key.png'} />
+        </Collapsible>
+        {!baseUrl && <button {...propsSetupButton}>SETUP</button>}
+        {baseUrl && <>
+            <label>Redmine successfully linked with extension.</label><br />
+            <button {...propsResetButton}>RESET</button>
             <hr />
             <section>
-                <label>Theme:</label>
-                <Checkbox {...propsThemeIsDarkRadio(true)}>Dark</Checkbox>
-                <Checkbox {...propsThemeIsDarkRadio(false)}>Light</Checkbox>
+                <label>Number of days:</label>
+                <input {...propsNumberOfDaysInput} />
             </section>
             <section>
-                <label>Design:</label>
-                <Checkbox {...propsLineHeightRadio(1.6)}>Wide</Checkbox>
-                <Checkbox {...propsLineHeightRadio(1.2)}>Compact</Checkbox>
+                <label>Work hours:</label>
+                <input {...propsWorkHoursStartInput} />-<input {...propsWorkHoursEndInput} />
             </section>
             <section>
-                <label>Misc:</label>
-                <Checkbox {...propsSkipAnimationCheckbox}>Skip animations</Checkbox>
+                <label>Auto refresh:</label>
+                <Checkbox {...propsAutoRefreshRadio(false)}>Off</Checkbox>
+                <Checkbox {...propsAutoRefreshRadio('hour')}>Hourly</Checkbox>
+                <Checkbox {...propsAutoRefreshRadio('day')}>Daily</Checkbox>
             </section>
-        </div>
+            <section>
+                <label>Hide inactive:</label>
+                <Checkbox {...propsHideInactiveIssuesCheckbox}>Issues</Checkbox>
+                <Checkbox {...propsHideInactiveActivitiesCheckbox}>Activities</Checkbox>
+            </section>
+            <section>
+                <label>Hotkey:</label>
+                <a {...propsExtensionsShortcutsLink}>extensions/shortcuts</a>
+            </section>
+        </>}
+        <hr />
+        <section>
+            <label>Theme:</label>
+            <Checkbox {...propsThemeIsDarkRadio(true)}>Dark</Checkbox>
+            <Checkbox {...propsThemeIsDarkRadio(false)}>Light</Checkbox>
+        </section>
+        <section>
+            <label>Design:</label>
+            <Checkbox {...propsLineHeightRadio(1.6)}>Wide</Checkbox>
+            <Checkbox {...propsLineHeightRadio(1.2)}>Compact</Checkbox>
+        </section>
+        <section>
+            <label>Misc:</label>
+            <Checkbox {...propsSkipAnimationCheckbox}>Skip animations</Checkbox>
+        </section>
     </ThemeProvider >;
 };
 
