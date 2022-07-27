@@ -65,7 +65,6 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, hideInactive, o
             favoriteIssueIds, favoriteActivities
         ])
     };
-    console.log({ hideInactive });
     const propsIssue = {
         placeholder: 'Issue', value: issue, values: issues,
         render: (issue, short) => short ?
