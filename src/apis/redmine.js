@@ -8,7 +8,7 @@
 export const createRedmineApi = (baseUrl, apiKey) => {
     const fetchRedmine = async (path, method, body) => {
         const response = await fetch(baseUrl.concat(path), {
-            method, body, headers: { 'X-Redmine-API-Key': apiKey, 'Content-Type': body && 'application/json' }
+            method, body, headers: { 'X-Redmine-API-Key': apiKey, ...(body && { 'Content-Type': 'application/json' }) }
         });
         if (response.ok) return response;
         if (response.status === 422) { // 422 Unprocessable Entity
