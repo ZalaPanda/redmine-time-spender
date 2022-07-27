@@ -1,9 +1,11 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
 
-ReactDOM.render(React.createElement(App), document.body.appendChild(document.createElement('div')));
+const node = createElement(App);
+const root = createRoot(document.body.appendChild(document.createElement('div')));
+root.render(node);

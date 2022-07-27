@@ -4,8 +4,8 @@
     "short_name": "RMTS",
     "description": "Reduce time spent in Redmine.",
     "homepage_url": "https://github.com/ZalaPanda/redmine-time-spender",
-    "version": "1.1.0",
-    "version_name": "1.1.0",
+    "version": "1.1.1",
+    "version_name": "1.1.1",
     "background": {
         "service_worker": "background.js"
     },

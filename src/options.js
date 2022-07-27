@@ -1,5 +1,7 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import Options from './Options.jsx';
 
-ReactDOM.render(React.createElement(Options), document.body.appendChild(document.createElement('div')));
+const node = createElement(Options);
+const root = createRoot(document.body.appendChild(document.createElement('div')));
+root.render(node);
