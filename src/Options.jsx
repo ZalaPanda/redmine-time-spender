@@ -33,7 +33,8 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         },
         'button': { border: [1, 'solid', theme.border] }
     },
-    checkbox: { cursor: 'pointer' }
+    checkbox: { cursor: 'pointer' },
+    help: { padding: 10 }
 }));
 
 const Options = () => {
@@ -186,7 +187,7 @@ const Options = () => {
             <input {...propsBaseUrlInput} />
             {/* <FiHelpCircle {...propsHelpToggle('BaseUrl')} /> */}
         </section>
-        <Collapsible open={help === 'BaseUrl'}>
+        <Collapsible open={true || help === 'BaseUrl'} className={classes.help}>
             <small>The <b>base URL</b> of the used Redmine:</small>
             <img src={'img/Redmine-URL.png'} />
         </Collapsible>
@@ -195,7 +196,7 @@ const Options = () => {
             <input {...propsApiKeyInput} />
             {/* <FiHelpCircle {...propsHelpToggle('ApiKey')} /> */}
         </section>
-        <Collapsible open={help === 'ApiKey'}>
+        <Collapsible open={true || help === 'ApiKey'} className={classes.help}>
             <small>The <b>API access key</b> under <b>My account</b> in Redmine:</small>
             <img src={'img/API-key.png'} />
         </Collapsible>
