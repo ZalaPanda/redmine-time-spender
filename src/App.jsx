@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, startTransition } from 'react';
 import { Globals } from '@react-spring/web';
 import { ThemeProvider, createUseStyles } from 'react-jss';
 import { FiRefreshCw, FiClock, FiSettings, FiHome, FiCoffee } from 'react-icons/fi';
@@ -8,7 +8,7 @@ import { themes } from './themes.js';
 import { createCryptoApi, convertHexToBin } from './apis/crypto.js';
 import { createRedmineApi } from './apis/redmine.js';
 import { createEntryptedDatabase } from './apis/database.js';
-import { useAsyncEffect, useRaise, useTimeoutState } from './apis/uses.js';
+import { useAsyncEffect, useRaise } from './apis/uses.js';
 
 import dayjs from 'dayjs';
 
@@ -157,7 +157,7 @@ const App = () => {
     const [lists, setLists] = useState([[], [], []]); // projects, issues, activities
 
     const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
-    const [search, setSearch] = useTimeoutState();
+    const [search, setSearch] = useState();
     const searching = search !== undefined;
     const [today, setToday] = useState(days[0]);
     const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
@@ -194,14 +194,14 @@ const App = () => {
     const loadTasks = async ({ aborted }) => {
         const tasks = await database.table('tasks').reverse().toArray();
         if (aborted) return;
-        setTasks(tasks);
+        startTransition(() => setTasks(tasks));
     };
     const loadEntries = async ({ aborted }) => {
         const entries = await database.table('entries').reverse().toArray();
         const issueIdsInEntries = [...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))];
         const issues = await database.table('issues').where('id').anyOf(issueIdsInEntries).toArray();
         if (aborted) return;
-        setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) })));
+        startTransition(() => setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) }))));
     };
     const loadLists = async ({ aborted }) => { // load projects/issues/activities after load
         const projects = await database.table('projects').toArray();
@@ -209,7 +209,7 @@ const App = () => {
         const unsortedActivities = await database.table('activities').toArray();
         const activities = unsortedActivities.sort((a, b) => a.name.localeCompare(b.name));
         if (aborted) return;
-        setLists([projects, issues, activities]);
+        startTransition(() => setLists([projects, issues, activities]));
     };
     useAsyncEffect(async ({ aborted }) => {
         if (!database) return;
@@ -223,7 +223,7 @@ const App = () => {
         onKeyDown: (event) => {
             const { key, ctrlKey } = event;
             if (ctrlKey && key === 'f') setSearch('') || event.preventDefault(); // turn on search mode
-            if (search !== undefined && key === 'Escape') setSearch(undefined) || event.preventDefault(); // turn off search mode
+            if (searching && key === 'Escape') setSearch(undefined) || event.preventDefault(); // turn off search mode
         }
     });
 
@@ -233,7 +233,7 @@ const App = () => {
     });
 
     const propsAddTaskInput = ({
-        placeholder: 'Add task', hidden: search !== undefined,
+        placeholder: 'Add task', hidden: searching,
         onKeyDown: async (event) => {
             const { which, target: { value } } = event;
             if (which === 13) {
@@ -247,8 +247,8 @@ const App = () => {
     });
 
     const propsSearchInput = ({
-        ref: ref => refs.current.searchInput = ref, placeholder: 'Search', hidden: search === undefined,
-        onChange: (event) => setSearch(event.target.value, 400) // wait 400ms before the change
+        ref: ref => refs.current.searchInput = ref, placeholder: 'Search', hidden: !searching,
+        onChange: (event) => startTransition(() => setSearch(event.target.value))
     });
 
     const propsHomeButton = ({
@@ -415,7 +415,7 @@ const App = () => {
     });
 
     const propsDay = (day) => ({
-        day, key: day, selected: search !== undefined || day === today, entries: filteredEntries[day] || [], workHours: settings?.workHours, baseUrl: settings?.redmine?.baseUrl,
+        day, key: day, selected: searching || day === today, entries: filteredEntries[day] || [], workHours: settings?.workHours, baseUrl: settings?.redmine?.baseUrl,
         onSelectDay: () => setToday(day === today ? undefined : day),
         onSelectEntry: (entry) => () => setEntry(entry)
     });

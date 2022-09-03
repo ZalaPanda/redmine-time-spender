@@ -11,7 +11,7 @@ export const useAsyncEffect = (effect = async (_signal) => { }, deps = undefined
     effect && effect(controller.signal);
     return () => controller.abort();
 }, deps);
-export const useTimeoutState = (initialState) => {
+export const useTimeoutState = (initialState) => { // NOTE: not used anymore -> startTransition
     const handle = useRef();
     const [value, setInnerValue] = useState(initialState);
     const setValue = (value, ms = 0) => {

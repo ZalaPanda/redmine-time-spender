@@ -1,10 +1,10 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, startTransition } from 'react';
 import { createUseStyles } from 'react-jss';
 import { useDrag } from '@use-gesture/react';
 import { useSpring, animated, config } from '@react-spring/web';
 import { Select } from './atoms/Select.jsx';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { useAsyncEffect, useListen } from './apis/uses.js';
+import { useAsyncEffect } from './apis/uses.js';
 import { Textarea } from './atoms/Textarea.jsx';
 
 const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
@@ -132,11 +132,9 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, hideInactive, o
         refs.current.issueSelect.focus();
         await Promise.all(setSpring.start({ y: 0 }));
     }, [init]);
-    useListen('unload', () => setEntry(entry => { // save current values to localStorage
-        if (entry) window.localStorage.setItem('draft', JSON.stringify(entry));
-        else window.localStorage.removeItem('draft');
-        return entry;
-    }));
+    useEffect(() => startTransition(() => entry ?
+        window.localStorage.setItem('draft', JSON.stringify(entry)) :
+        window.localStorage.removeItem('draft')), [entry]);
     return <animated.div className={classes.editor} style={{ y, scale }}>
         <div className={classes.title} {...propsTitle}>
             <label>{id ? 'Edit time entry' : 'New time entry'}</label>
