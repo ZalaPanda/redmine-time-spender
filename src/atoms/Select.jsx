@@ -57,7 +57,7 @@ export const Select = ({
         refs.current.input.focus();
     };
 
-    const propsSelect = ({
+    const propsSelect = ({ // NOTE: focus/blur timeout is needed because the toggle list button steals the focus
         onBlur: () => refs.current.timeout = setTimeout(() => setSearch({ value: '', index: -1, active: false }), 100), // -> start list hide timeout
         onFocus: () => clearTimeout(refs.current.timeout), // -> cancel list hide timeout
         tabIndex: -1, // needed to detect focus/blur events
@@ -123,7 +123,9 @@ export const Select = ({
         const element = refs.current.list?.children[search.index];
         element && element.scrollIntoView({ block: 'nearest' });
     }, [search.index]);
-    useEffect(() => onMount(refs), []);
+    useEffect(() => {
+        onMount(refs);
+    }, []);
     return <div {...propsSelect}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
