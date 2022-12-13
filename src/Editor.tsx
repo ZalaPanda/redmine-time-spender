@@ -1,48 +1,47 @@
-import React, { useState, useRef, useMemo, useEffect, startTransition } from 'react';
-import { createUseStyles } from 'react-jss';
+import { useState, useRef, useMemo, useEffect, startTransition } from 'react';
+import { css, Theme } from '@emotion/react';
+import { margin, padding } from 'polished';
 import { useDrag } from '@use-gesture/react';
 import { useSpring, animated, config } from '@react-spring/web';
-import { Select } from './atoms/Select.jsx';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { useAsyncEffect } from './apis/uses.js';
-import { Textarea } from './atoms/Textarea.jsx';
+import { useAsyncEffect } from './apis/uses';
+import { Activity, Entry, Issue, Project } from './apis/redmine';
+import { Select } from './atoms/Select';
+import { Textarea } from './atoms/Textarea';
 
-const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    editor: {
-        position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
-        backgroundColor: theme.bg, border: [1, 'solid', theme.border], boxShadow: [0, 3, 9, theme.shadow]
+const editorStyles = (theme: Theme) => css({
+    position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
+    backgroundColor: theme.bg, borderWidth: 1, borderStyle: 'solid', borderColor: theme.border, boxShadow: `0 3px 9px ${theme.shadow}`
+});
+const titleStyles = (theme: Theme) => css({
+    display: 'flex', alignItems: 'center', ...padding(0, 10), backgroundColor: theme.title.bg, color: theme.title.text, fontWeight: 'bold',
+    userSelect: 'none', touchAction: 'none', cursor: 'grab',
+    '&:active': { cursor: 'grabbing' },
+});
+const fieldsStyles = (theme: Theme) => css({
+    '&>div': {
+        display: 'flex', alignItems: 'center', padding: 2,
+        '&>label': { color: theme.field.text }, // label with svg icon
+        '&>div': { flexGrow: 1 }, // project, issue, activity
+        '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
     },
-    title: {
-        display: 'flex', alignItems: 'center', padding: [0, 10], backgroundColor: theme.title.bg, color: theme.title.text, fontWeight: 'bold',
-        userSelect: 'none', touchAction: 'none', cursor: 'grab',
-        '&:active': { cursor: 'grabbing' },
+    '&>div:focus-within': {
+        '&>label': { color: theme.field.focus }, // label with svg icon
     },
-    fields: {
-        '&>div': {
-            display: 'flex', alignItems: 'center', padding: 2,
-            '&>label': { color: theme.field.text }, // label with svg icon
-            '&>div': { flexGrow: 1 }, // project, issue, activity
-            '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
-        },
-        '&>div:focus-within': {
-            '&>label': { color: theme.field.focus }, // label with svg icon
-        },
-        '&>hr': { margin: [0, 10, 0, 30], border: 0, borderBottom: [1, 'solid', theme.border] }
-    }
-}));
+    '&>hr': { ...margin(0, 10, 0, 30), border: 0, borderBottom: 1, borderStyle: 'solid', borderColor: theme.border }
+});
 
 export const Editor = ({ entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onChangeFavorites, onDismiss, onDelete }) => {
-    const classes = useStyles();
     const refs = useRef({ issueSelect: undefined });
     const [minimized, setMinimized] = useState(false);
-    const [entry, setEntry] = useState();
-    const { id, project, issue, activity, hours, comments, spent_on } = entry || {};
+    const [entry, setEntry] = useState<Entry>();
+    const { id, project, issue, activity, hours, comments, spent_on } = entry || {} as Entry;
     const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }));
 
-    const [rawProjects = [], rawIssues = [], rawActivities = []] = lists ?? [];
-    const [favoriteProjectIds = [], favoriteIssueIds = [], favoriteActivities = []] = favorites ?? [];
+    const [rawProjects = [], rawIssues = [], rawActivities = []]: [Project[], Issue[], Activity[]] = lists ?? [];
+    const [favoriteProjectIds = [], favoriteIssueIds = [], favoriteActivities = []]: [number[], number[], number[]] = favorites ?? [];
 
-    const sort = (list, favoriteIds) => {
+    const sort = <T extends { id: number }>(list: T[], favoriteIds: number[]): T[] => {
         const [favorites, rest] = list.reduce(([favorites, rest], item) => favoriteIds.includes(item.id) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
         return [...favorites.map(item => ({ ...item, favorite: true })), ...rest];
     };
@@ -67,9 +66,9 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, hideInactive, o
     };
     const propsIssue = {
         placeholder: 'Issue', value: issue, values: issues,
-        render: (issue, short) => short ?
-            <div>#{issue.id} {issue.closed_on ? <strike>{issue.subject}</strike> : issue.subject}</div> :
-            <div title={issue.description}>#{issue.id} {issue.project.name}<br />{issue.closed_on ? <strike>{issue.subject}</strike> : issue.subject}</div>,
+        render: (issue, short: boolean) => short ?
+            <div>#{issue.id} {issue.closed_on ? <del>{issue.subject}</del> : issue.subject}</div> :
+            <div title={issue.description}>#{issue.id} {issue.project.name}<br />{issue.closed_on ? <del>{issue.subject}</del> : issue.subject}</div>,
         stringlify: issue => issue.id,
         linkify: issue => `${baseUrl}/issues/${issue.id}`,
         filter: hideInactive?.issues ?
@@ -89,7 +88,7 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, hideInactive, o
     };
     const propsActivity = {
         placeholder: 'Activity', value: activity, values: activities,
-        render: activity => <div>{activity.active === false ? <strike>{activity.name}</strike> : activity.name}</div>,
+        render: activity => <div>{activity.active === false ? <del>{activity.name}</del> : activity.name}</div>,
         stringlify: activity => activity.id,
         filter: hideInactive?.activities ?
             filter => activity => activity.active && filter.test(activity.name) :
@@ -135,12 +134,12 @@ export const Editor = ({ entry: init, lists, favorites, baseUrl, hideInactive, o
     useEffect(() => startTransition(() => entry ?
         window.localStorage.setItem('draft', JSON.stringify(entry)) :
         window.localStorage.removeItem('draft')), [entry]);
-    return <animated.div className={classes.editor} style={{ y, scale }}>
-        <div className={classes.title} {...propsTitle}>
+    return <animated.div css={editorStyles} style={{ y, scale }}>
+        <div css={titleStyles} {...propsTitle}>
             <label>{id ? 'Edit time entry' : 'New time entry'}</label>
             <button {...propsMinimize}>{minimized ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         </div>
-        <div hidden={minimized} className={classes.fields}>
+        <div hidden={minimized} css={fieldsStyles}>
             <div>
                 <label title={'Project'}><FiPackage /></label>
                 <Select {...propsProject} />

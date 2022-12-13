@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
-import { createUseStyles } from 'react-jss';
-import { useListen } from './apis/uses.js';
+import { css, Theme } from '@emotion/react';
+import { margin } from 'polished';
+import { useListen } from './apis/uses';
 
-const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    bar: { height: 3, margin: [-2, 0], backgroundColor: theme.muted, borderRadius: 2 }
-}));
+const barStyles = (theme: Theme) => css({
+    height: 3, ...margin(-2, 0), backgroundColor: theme.muted, borderRadius: 2
+});
 
 export const Bar = () => {
-    const classes = useStyles();
-    const [progress, setProgress] = useState();
+    const [progress, setProgress] = useState<{ [key: string]: number[] } | undefined>();
     const [{ percent, opacity }, setSpring] = useSpring(() => ({
         percent: 0, opacity: 0, immediate: true,
         onRest: {
-            opacity: ({ value }) => value === 0 && setProgress() // reset progress on finish
+            opacity: ({ value }) => value === 0 && setProgress(undefined) // reset progress on finish
         }
     }));
     useEffect(() => {
@@ -23,5 +23,5 @@ export const Bar = () => {
     }, [progress]);
 
     useListen('progress', ({ resource, count, total }) => setProgress(progress => ({ ...progress, [resource]: [count, total] })));
-    return <animated.div className={classes.bar} style={{ width: percent.to(p => `${p}%`), opacity }}></animated.div>
+    return <animated.div css={barStyles} style={{ width: percent.to(p => `${p}%`), opacity }}></animated.div>
 }

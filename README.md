@@ -31,4 +31,5 @@ Roadmap
 
 Future plans
 ------------
-* what's new page
+* create issues in redmine - #4
+* maybe replace webpack with [esbuild](https://esbuild.github.io/)

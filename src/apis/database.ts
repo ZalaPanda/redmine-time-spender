@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { CryptoAPI } from './crypto';
 
 const databaseName = 'redmine-cache';
 const databaseSchema = {
@@ -10,22 +11,15 @@ const databaseSchema = {
 };
 const secretKey = '_data';
 
-/**
- * Create Dexie database without encryption
- * @returns {Dexie}
- */
-export const createUnentryptedDatabase = () => {
+/** Create Dexie database without encryption */
+export const createUnentryptedDatabase = (): Dexie => {
     const database = new Dexie(databaseName);
     database.version(1).stores(databaseSchema);
     return database;
 };
 
-/**
- * Create Dexie database with encryption
- * @param {CryptoAPI} crypto 
- * @returns {Dexie}
- */
-export const createEntryptedDatabase = (crypto) => {
+/** Create Dexie database with encryption */
+export const createEntryptedDatabase = (crypto: CryptoAPI): Dexie => {
     const database = new Dexie(databaseName);
     database.version(1).stores(databaseSchema);
     return database.use({ // https://dexie.org/docs/Dexie/Dexie.use()
@@ -64,13 +58,13 @@ export const createEntryptedDatabase = (crypto) => {
                             primaryKey: { get: () => cursor.primaryKey },
                             value: { get: () => decrypt(cursor.value) },
                             done: { get: () => cursor.done },
-                            continue: { value: (key) => cursor.continue(key) }, // obsolete? undocumented?
-                            continuePrimaryKey: { value: (key, primaryKey) => cursor.continuePrimaryKey(key, primaryKey) },
-                            advance: { value: (count) => cursor.advance(count) },
-                            start: { value: (onNext) => cursor.start(onNext) },
-                            stop: { value: (value) => cursor.stop(value) },
+                            continue: { value: (key?: any) => cursor.continue(key) }, // obsolete? undocumented?
+                            continuePrimaryKey: { value: (key: any, primaryKey: any) => cursor.continuePrimaryKey(key, primaryKey) },
+                            advance: { value: (count: number) => cursor.advance(count) },
+                            start: { value: (onNext: ()=>void) => cursor.start(onNext) },
+                            stop: { value: (value?: any | Promise<any>) => cursor.stop(value) },
                             next: { value: () => cursor.next() },
-                            fail: { value: (error) => cursor.fail(error) }
+                            fail: { value: (error: Error) => cursor.fail(error) }
                         });
                     },
                     get: async req => {
@@ -88,8 +82,11 @@ export const createEntryptedDatabase = (crypto) => {
                         return { ...res, result: values && result.map(decrypt) || result };
                     },
                     mutate: async req => {
-                        const { values } = req;
-                        return table.mutate({ ...req, values: values && values.map(encrypt) });
+                        if ('values' in req) {
+                            const { values } = req;
+                            return table.mutate({ ...req, values: values && values.map(encrypt) });
+                        }
+                        return table.mutate(req);
                     }
                 };
             }

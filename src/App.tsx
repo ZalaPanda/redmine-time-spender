@@ -1,140 +1,107 @@
-import React, { useState, useEffect, useMemo, useRef, startTransition } from 'react';
+import { useState, useEffect, useMemo, useRef, startTransition, KeyboardEvent } from 'react';
 import { Globals } from '@react-spring/web';
-import { ThemeProvider, createUseStyles } from 'react-jss';
-import { FiRefreshCw, FiClock, FiSettings, FiHome, FiCoffee } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiSettings, FiHome } from 'react-icons/fi';
+import { css, Theme, ThemeProvider, Global } from '@emotion/react';
+import { margin } from 'polished';
 // import { loremIpsum } from 'lorem-ipsum';
 
-import { themes } from './themes.js';
-import { createCryptoApi, convertHexToBin } from './apis/crypto.js';
-import { createRedmineApi } from './apis/redmine.js';
-import { createEntryptedDatabase } from './apis/database.js';
-import { useAsyncEffect, useRaise } from './apis/uses.js';
+import { globalStyles, themes } from './themes';
+import { createCryptoApi, convertHexToBin } from './apis/crypto';
+import { createRedmineApi, RedmineAPI } from './apis/redmine';
+import { createEntryptedDatabase } from './apis/database';
+import { useAsyncEffect, useRaise } from './apis/uses';
 
 import dayjs from 'dayjs';
 
-import { Editor } from './Editor.jsx';
-import { Day } from './Day.jsx';
-import { Task } from './Task.jsx';
-import { Toaster } from './Toaster.jsx';
-import { Bar } from './Bar.jsx';
+import { Editor } from './Editor';
+import { Day } from './Day';
+import { Task, TaskEntry } from './Task';
+import { Toaster } from './Toaster';
+import { Bar } from './Bar';
+import { Database } from 'dexie';
 
-export const useGlobalStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    '@font-face': [{
-        fontFamily: 'WorkSans',
-        src: 'url("font/work-sans-v11-latin-500.woff2") format("woff2")',
-    }, {
-        fontFamily: 'WorkSans',
-        fontWeight: 'bold',
-        src: 'url("font/work-sans-v11-latin-700.woff2") format("woff2")',
-    }],
-    '@global': {
-        '*': { fontSize: 16, fontFamily: ['WorkSans', 'Verdana', 'sans-serif'], lineHeight: theme.lineHeight },
-        'html': { backgroundColor: theme.bg, color: theme.text, scrollBehavior: 'smooth' },
-        'input, textarea, button': {
-            color: 'unset', backgroundColor: 'transparent',
-            border: 'none', margin: 1, padding: [4, 6], boxSizing: 'border-box', resize: 'none',
-            '&:focus': { outline: 'none' },
-            '&:disabled': { filter: 'opacity(0.6)', cursor: 'auto' }
-        },
-        'button': {
-            textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', borderRadius: 4,
-            '&:hover, &:focus': { backgroundColor: theme.button.hover },
-            '&:active': { backgroundColor: theme.button.active }
-        },
-        'small': { fontSize: 12 },
-        'a': {
-            fontWeight: 'bold', color: 'unset', textDecoration: 'none',
-            '&:visited': { color: 'unset' },
-            '&:hover, &:focus': { textDecoration: 'underline' }
-        },
-        'b': { fontSize: 'inherit' },
-        'svg': { margin: 2, verticalAlign: 'middle', strokeWidth: 2.5 },
-        // [scrollbar] https://css-tricks.com/the-current-state-of-styling-scrollbars/
-        '::-webkit-scrollbar': { width: 8, height: 8 },
-        '::-webkit-scrollbar-track': { borderRadius: 4, backgroundColor: 'transparent' },
-        '::-webkit-scrollbar-thumb': { borderRadius: 4, backgroundColor: theme.mark, border: [2, 'solid', theme.bg] },
-        '::-webkit-scrollbar-corner': { backgroundColor: 'transparent' },
-        '::-webkit-resizer': { backgroundColor: 'transparent' },
-        // [selection]
-        '::selection': { backgroundColor: theme.mark },
-        // [number input] remove inc/dec buttons
-        'input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none' },
-        // [date input] remove button
-        '::-webkit-calendar-picker-indicator': { background: 'none' }
-    },
-}));
+const appStyles = (theme: Theme) => css([
+    globalStyles(theme),
+    { 'body': { width: 460, minHeight: 380, ...margin(10, 8) } }
+]);
 
-const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    '@global': {
-        'body': { width: 460, minHeight: 380, margin: [10, 8] }
-    },
-    header: {
-        display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
-        '&>button[active]': { backgroundColor: theme.button.active },
-        '&>input': { flexGrow: 1 }
-    }
-}));
+const titleStyles = (theme: Theme) => css({
+    display: 'flex', backgroundColor: theme.mark, padding: 2, borderRadius: 4, marginBottom: 4,
+    '&>button[active]': { backgroundColor: theme.button.active },
+    '&>input': { flexGrow: 1 }
+})
 
 export const storage = {
-    get: keys => new Promise((resolve, reject) => chrome.storage.local.get(keys, items => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(items))),
-    set: items => new Promise((resolve, reject) => chrome.storage.local.set(items, _ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve())),
-    remove: keys => new Promise((resolve, reject) => chrome.storage.local.remove(keys, _ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve())),
-    clear: _ => new Promise((resolve, reject) => chrome.storage.local.clear(_ => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve()))
+    get: (keys?: string[]) => new Promise((resolve, reject) => chrome.storage.local.get(keys, items => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(items))),
+    set: (items: { [key: string]: any }) => new Promise((resolve, reject) => chrome.storage.local.set(items, () => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(undefined))),
+    remove: (keys?: string | string[]) => new Promise((resolve, reject) => chrome.storage.local.remove(keys, () => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(undefined))),
+    clear: () => new Promise((resolve, reject) => chrome.storage.local.clear(() => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(undefined)))
 };
 
 const cookieName = '_redmine_time_spender';
-export const cookie = (url) => ({
-    get: _ => new Promise((resolve, reject) => chrome.cookies.get({
+export const cookie = (url: string) => ({
+    get: () => new Promise<chrome.cookies.Cookie>((resolve, reject) => chrome.cookies.get({
         name: cookieName, url
     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
-    set: value => new Promise((resolve, reject) => chrome.cookies.set({
+    set: (value: string | undefined) => new Promise<chrome.cookies.Cookie>((resolve, reject) => chrome.cookies.set({
         name: cookieName, value, url, httpOnly: true, secure: true, expirationDate: 2147483647
     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
-    remove: _ => new Promise((resolve, reject) => chrome.cookies.remove({
+    remove: () => new Promise<chrome.cookies.Details>((resolve, reject) => chrome.cookies.remove({
         name: cookieName, url
     }, cookie => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(cookie))),
     permission: {
-        request: _ => new Promise((resolve, reject) => chrome.permissions.request({
+        request: () => new Promise<void>((resolve, reject) => chrome.permissions.request({
             permissions: ['cookies'], origins: [new URL(url).href]
         }, granted => granted ? resolve() : reject('Request denied!'))),
-        contains: _ => new Promise((resolve) => chrome.permissions.contains({
+        contains: () => new Promise<boolean>((resolve) => chrome.permissions.contains({
             permissions: ['cookies'], origins: [new URL(url).href]
         }, resolve)),
-        remove: _ => new Promise((resolve) => chrome.permissions.remove({
+        remove: () => new Promise<boolean>((resolve) => chrome.permissions.remove({
             permissions: ['cookies']
         }, resolve))
     }
 });
 
-/** @type {Settings} */
-export const defaultSettings = {
+/** User settings stored in `chrome.storage.local` */
+export interface Settings {
+    redmine?: { baseUrl: string, encodedKey: string },
+    theme?: { isDark: boolean, lineHeight: number },
+    numberOfDays: number,
+    workHours: [start: number, end: number],
+    autoRefresh?: 'hour' | 'day',
+    lastRefresh?: string,
+    skipAnimation: boolean,
+    hideInactive: { issues: boolean, activities: boolean },
+    favorites?: { favoriteProjectIds: number[], favoriteIssueIds: number[], favoriteActivities: number[] }
+};
+
+export const defaultSettings: Settings = {
     redmine: undefined,
     theme: { isDark: true, lineHeight: 1.6 },
     numberOfDays: 7,
     workHours: [8, 16],
     skipAnimation: false,
-    autoRefresh: false,
     hideInactive: { issues: false, activities: false }
 };
 
-const App = () => {
-    const refs = useRef({ addEntryButton: undefined, refreshButton: undefined, searchInput: undefined });
+export const App = () => {
+    const refs = useRef({
+        addEntryButton: undefined as HTMLButtonElement,
+        refreshButton: undefined as HTMLButtonElement,
+        searchInput: undefined as HTMLInputElement
+    });
     const raiseError = useRaise('error');
 
-    /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
-    const [settings, setSettings] = useState();
+    const [settings, setSettings] = useState<Settings>();
     useAsyncEffect(async ({ aborted }) => { // load settings from local storage
-        const settings = await storage.get();
+        const settings = await storage.get() as Settings;
         if (aborted) return;
         setSettings({ ...defaultSettings, ...settings });
-        if (!settings?.redmine) chrome.runtime.openOptionsPage(); // open options
+        if (settings?.redmine) return;
+        chrome.runtime.openOptionsPage();
     }, []);
 
-    /** @type {[Theme, React.Dispatch<(prevState: Theme) => Theme>]} */
-    const [theme, setTheme] = useState({ ...themes['dark'], lineHeight: 1.6 });
-    const classes = useStyles({ theme });
-    useGlobalStyles({ theme });
-
+    const [theme, setTheme] = useState<Theme>({ ...themes['dark'], lineHeight: 1.6 });
     useEffect(() => { // update theme
         if (!settings?.theme) return;
         const { theme: { isDark, lineHeight } } = settings;
@@ -147,27 +114,25 @@ const App = () => {
         Globals.assign({ skipAnimation });
     }, [settings?.skipAnimation]);
 
-    /** @type {[RedmineAPI, React.Dispatch<(prevState: RedmineAPI) => RedmineAPI>]} */
-    const [redmine, setRedmine] = useState(); // Redmine API
-    /** @type {[Dexie.Database, React.Dispatch<(prevState: Dexie.Database) => Dexie.Database>]} */
-    const [database, setDatabase] = useState(); // IndexedDb API
+    const [redmine, setRedmine] = useState<RedmineAPI>(); // Redmine API
+    const [database, setDatabase] = useState<Database>(); // IndexedDb API
 
-    const [tasks, setTasks] = useState([]); // todo list items
+    const [tasks, setTasks] = useState<TaskEntry[]>([]); // todo list items
     const [entries, setEntries] = useState([]); // Redmine time entries
     const [lists, setLists] = useState([[], [], []]); // projects, issues, activities
 
     const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
-    const [search, setSearch] = useState();
+    const [search, setSearch] = useState<string | undefined>();
     const searching = search !== undefined;
     const [today, setToday] = useState(days[0]);
     const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
 
     const filteredTasks = useMemo(() => {
-        const exp = searching && RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
+        const exp = searching && RegExp((search || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
         return tasks.filter(({ value, closed_on }) => exp ? exp.test(value) : !closed_on || dayjs(today).isSame(closed_on, 'day'));
     }, [tasks, today, search, searching]);
     const filteredEntries = useMemo(() => {
-        const exp = searching && RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
+        const exp = searching && RegExp((search || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
         return entries
             .filter(({ project, issue, activity, comments }) => !exp || exp.test(comments) || exp.test(project?.name) || exp.test(issue?.subject) || exp.test(issue?.id) || exp.test(activity?.name))
             .reduce((entries, entry) => ({ ...entries, [entry.spent_on]: [...entries[entry.spent_on] || [], entry] }), {})
@@ -185,7 +150,6 @@ const App = () => {
         if (aborted) return;
         setRedmine(redmine);
         setDatabase(database);
-
         const { autoRefresh, lastRefresh } = settings; // handle auto refresh
         if (await database.table('activities').count() && autoRefresh && lastRefresh && dayjs().isSame(dayjs(lastRefresh), autoRefresh)) return;
         refs.current.refreshButton.click();
@@ -198,7 +162,7 @@ const App = () => {
     };
     const loadEntries = async ({ aborted }) => {
         const entries = await database.table('entries').reverse().toArray();
-        const issueIdsInEntries = [...new Set(entries.filter(entry => entry.issue).map(entry => entry.issue.id))];
+        const issueIdsInEntries = entries.filter(entry => entry.issue).map(entry => entry.issue.id).filter((id, index, array) => array.indexOf(id) === index);
         const issues = await database.table('issues').where('id').anyOf(issueIdsInEntries).toArray();
         if (aborted) return;
         startTransition(() => setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) }))));
@@ -219,48 +183,58 @@ const App = () => {
     }, [database]);
 
     const propsTitle = ({
-        className: classes.header,
-        onKeyDown: (event) => {
+        css: titleStyles,
+        onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
             const { key, ctrlKey } = event;
-            if (ctrlKey && key === 'f') setSearch('') || event.preventDefault(); // turn on search mode
-            if (searching && key === 'Escape') setSearch(undefined) || event.preventDefault(); // turn off search mode
+            if (ctrlKey && key === 'f') { // turn on search mode
+                setSearch('');
+                return event.preventDefault();
+            }
+            if (searching && (key === 'Escape' || key === 'Esc')) { // turn off search mode
+                setSearch(undefined);
+                return event.preventDefault();
+            }
         }
     });
 
     const propsAddEntryButton = ({
-        ref: ref => refs.current.addEntryButton = ref, title: 'Add time entry',
-        onClick: _ => setEntry({ spent_on: today })
+        ref: (ref: HTMLButtonElement) => refs.current.addEntryButton = ref,
+        title: 'Add time entry',
+        onClick: () => setEntry({ spent_on: today })
     });
 
     const propsAddTaskInput = ({
         placeholder: 'Add task', hidden: searching,
-        onKeyDown: async (event) => {
-            const { which, target: { value } } = event;
-            if (which === 13) {
+        onKeyDown: async (event: KeyboardEvent<HTMLInputElement>) => {
+            const { key, currentTarget: target } = event;
+            const { value } = target;
+            if (key === 'Enter') {
                 const props = { value, created_on: dayjs().toJSON() };
                 const id = await database.table('tasks').add(props);
-                const task = { id, ...props };
+                const task = { id, ...props } as TaskEntry;
                 setTasks(tasks => [task, ...tasks]);
-                event.target.value = '';
+                target.value = '';
             }
         }
     });
 
     const propsSearchInput = ({
-        ref: ref => refs.current.searchInput = ref, placeholder: 'Search', hidden: !searching,
+        ref: (ref: HTMLInputElement) => refs.current.searchInput = ref,
+        placeholder: 'Search', hidden: !searching,
         onChange: (event) => startTransition(() => setSearch(event.target.value))
     });
 
     const propsHomeButton = ({
         title: settings?.redmine?.baseUrl, disabled: !settings,
-        onClick: _ => {
+        onClick: () => {
             const url = settings?.redmine?.baseUrl;
             chrome.tabs.create({ url });
         }
     });
 
     const propsRefreshButton = ({
-        ref: ref => refs.current.refreshButton = ref, title: 'Refresh',
+        ref: (ref: HTMLButtonElement) => refs.current.refreshButton = ref,
+        title: 'Refresh',
         onClick: async () => {
             const refreshEntries = async () => {
                 const { numberOfDays } = settings;
@@ -300,8 +274,8 @@ const App = () => {
                     refreshIssues(),
                     refreshActivities()
                 ]);
-                if (changedEntries) loadEntries({});
-                if (changedValues.find(value => value)) loadLists({});
+                if (changedEntries) loadEntries({ aborted: false });
+                if (changedValues.find(value => value)) loadLists({ aborted: false });
                 await storage.set({ lastRefresh: dayjs().toJSON() }); // save last refresh date
             } catch (error) {
                 raiseError(error);
@@ -314,15 +288,15 @@ const App = () => {
 
     const propsOptionsButton = ({
         title: 'Options',
-        onClick: _ => chrome.runtime.openOptionsPage()
+        onClick: () => chrome.runtime.openOptionsPage()
     });
 
     // const propsCipherButton = ({
     //     title: 'Lorem ipsum strings',
-    //     onClick: event => {
-    //         const sentence = _ => loremIpsum({ units: 'sentence', count: 1 });
+    //     onClick: (event: MouseEvent<HTMLButtonElement>) => {
+    //         const sentence = () => loremIpsum({ units: 'sentence', count: 1 });
     //         const capitalize = ([first, ...rest]) => first.toUpperCase() + rest.join('').toLowerCase();
-    //         const words = count => capitalize(loremIpsum({ units: 'words', count: Math.floor(Math.random() * count) + 1 }));
+    //         const words = (count: number) => capitalize(loremIpsum({ units: 'words', count: Math.floor(Math.random() * count) + 1 }));
     //         // setTasks(tasks => tasks.map(task => ({ // not working
     //         //     ...task,
     //         //     value: sentence()
@@ -363,7 +337,7 @@ const App = () => {
                     await database.table('entries').put(entry);
                     setEntries(entries => [{ ...entry, issue }, ...entries]);
                 }
-                setEntry();
+                setEntry(undefined);
                 refs.current.addEntryButton.focus();
             } catch (error) {
                 raiseError(error);
@@ -374,7 +348,7 @@ const App = () => {
                 await redmine.deleteEntry({ id });
                 await database.table('entries').delete(id);
                 setEntries(entries => entries.filter(entry => entry.id !== id));
-                setEntry();
+                setEntry(undefined);
                 refs.current.addEntryButton.focus();
             } catch (error) {
                 raiseError(error);
@@ -389,7 +363,10 @@ const App = () => {
                 raiseError(error);
             }
         },
-        onDismiss: () => setEntry() || refs.current.addEntryButton.focus()
+        onDismiss: () => {
+            setEntry(undefined);
+            refs.current.addEntryButton.focus();
+        }
     });
 
     const propsTask = (task) => ({
@@ -414,7 +391,7 @@ const App = () => {
         }
     });
 
-    const propsDay = (day) => ({
+    const propsDay = (day: string) => ({
         day, key: day, selected: searching || day === today, entries: filteredEntries[day] || [], workHours: settings?.workHours, baseUrl: settings?.redmine?.baseUrl,
         onSelectDay: () => setToday(day === today ? undefined : day),
         onSelectEntry: (entry) => () => setEntry(entry)
@@ -422,6 +399,7 @@ const App = () => {
 
     useEffect(() => searching ? refs.current.searchInput?.focus() : refs.current.addEntryButton?.focus(), [searching]); // focus on add entry button / search input
     return <ThemeProvider theme={theme}>
+        <Global styles={appStyles} />
         <Editor {...propsEditor} />
         <Toaster />
         <div {...propsTitle}>
@@ -438,5 +416,3 @@ const App = () => {
         {days.map(day => <Day {...propsDay(day)} />)}
     </ThemeProvider>;
 };
-
-export default App;
