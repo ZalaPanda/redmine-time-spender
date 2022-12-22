@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, ChangeEvent, KeyboardEvent, Mouse
 import { css, Theme } from '@emotion/react';
 import { padding } from 'polished';
 import { useGesture } from '@use-gesture/react';
-import { FiChevronDown, FiChevronsDown, FiExternalLink, FiStar, FiX } from 'react-icons/fi';
+import { FiChevronDown, FiChevronsDown, FiEdit, FiExternalLink, FiStar, FiX } from 'react-icons/fi';
 
 const selectStyles = (theme: Theme) => css({
     display: 'inline-block', position: 'relative',
@@ -22,8 +22,8 @@ const selectStyles = (theme: Theme) => css({
         color: theme.text, backgroundColor: theme.select.bg,
         '&>div': { ...padding(4, 6), cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap' },
         '&>div[active]': { border: 0, borderLeft: 4, borderStyle: 'solid', borderColor: theme.select.tape, backgroundColor: theme.mark },
-        '&>div:hover>svg': { display: 'block' },
-        '&>div>svg': {
+        '&>div:hover>a': { display: 'block' },
+        '&>div>a': {
             float: 'right', color: theme.muted, display: 'none',
             '&[active]': { color: theme.text, display: 'block' },
         },
@@ -42,6 +42,7 @@ interface SelectProps<T> {
     stringlify?: (value: T) => string,
     linkify?: (value: T) => string | undefined,
     filter?: (exp: RegExp) => (value: T) => boolean,
+    onEdit?: (search: string, value: T) => void,
     onChange?: (value?: T) => void,
     onFavorite?: (value: T) => void,
     onMount?: (refs: MutableRefObject<{ input: HTMLInputElement, list: HTMLDivElement }>) => void
@@ -53,9 +54,8 @@ export const Select = <T extends {}>({
     stringlify = value => String(value),
     linkify = _value => null,
     filter = exp => value => exp.test(String(value)),
-    onChange = _value => { },
-    onFavorite = _value => { },
-    onMount = _refs => { }, ...props
+    onEdit, onChange, onFavorite, onMount,
+    ...props
 }: SelectProps<T>) => {
     const refs = useRef({
         input: undefined as HTMLInputElement,
@@ -68,11 +68,10 @@ export const Select = <T extends {}>({
         const exp = RegExp((search.value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); // https://stackoverflow.com/a/6969486
         return values.filter(filter(exp));
     }, [search.value, values]);
-    const url = useMemo(() => current && linkify(current), [current]);
 
     const getIndex = (filtered: any[], index: number, diff: number) => filtered[index + diff] ? index + diff : diff < 0 ? 0 : index;
     const setValue = (value?: T) => {
-        value !== current && onChange(value);
+        value !== current && !!onChange && onChange(value);
         setSearch({ value: '', index: -1, active: false });
         refs.current.input.focus();
     };
@@ -84,22 +83,15 @@ export const Select = <T extends {}>({
         css: selectStyles,
         ...props
     });
-    const propsLink = ({
-        href: url, target: '_blank', tabIndex: -1,
-        onClick: (event: MouseEvent<HTMLAnchorElement>) => {
-            event.preventDefault();
-            chrome.tabs.create({ url, active: false });
-        }
-    });
     const propsClear = ({
-        href: '#', tabIndex: -1,
+        title: 'Clear', href: '#', tabIndex: -1,
         onClick: (event: MouseEvent<HTMLAnchorElement>) => {
             event.preventDefault();
             setValue(); // clear current value
         }
     });
     const propsToggle = ({
-        onClick: () => {
+        title: 'Toggle', onClick: () => {
             setSearch(search => ({ ...search, active: !search.active }));
             refs.current.input.focus() // -> toggle list and focus input
         }
@@ -151,15 +143,32 @@ export const Select = <T extends {}>({
             }
         }, {})()
     });
-    const propsItem = (value, index) => ({
+    const propsItem = (value: T, index: number) => ({
         key: stringlify(value),
         active: index === search.index ? 'true' : null,
         onClick: () => setValue(value),
         onMouseEnter: () => setSearch(search => ({ ...search, index }))
     });
-    const propsFavorite = (value) => ({
-        active: value.favorite ? 'true' : null,
-        onClick: () => onFavorite(value)
+    const propsFavorite = (value: T) => ({
+        title: 'Favorite', active: value['favorite'] ? 'true' : null,
+        onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+            onFavorite(value);
+            event.preventDefault();
+        }
+    });
+    const propsEdit = (value: T) => ({
+        title: 'Edit', href: '#', tabIndex: -1,
+        onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+            onEdit(search?.value, value);
+            event.preventDefault();
+        }
+    });
+    const propsLink = (value: T) => ({
+        title: 'Link', href: linkify(value), target: '_blank', tabIndex: -1,
+        onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+            event.preventDefault();
+            chrome.tabs.create({ url: linkify(value), active: false });
+        }
     });
 
     useEffect(() => { // scroll to selected option
@@ -167,18 +176,24 @@ export const Select = <T extends {}>({
         element && element.scrollIntoView({ block: 'nearest' });
     }, [search.index]);
     useEffect(() => {
-        onMount(refs);
+        !!onMount && onMount(refs);
     }, []);
     return <div {...propsSelect}>
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
-            {url && <a {...propsLink}><FiExternalLink /></a>}
+            {!!linkify && current && !search.value && <a {...propsLink(current)}><FiExternalLink /></a>}
+            {!!onEdit && <a {...propsEdit(current)}><FiEdit /></a>}
             {current && <a {...propsClear}><FiX /></a>}
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
         <input {...propsInput} />
         {search.active && <div {...propsList}>
-            {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}><FiStar {...propsFavorite(value)} />{render(value)}</div>)}
+            {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>
+                {!!onFavorite && <a {...propsFavorite(value)}><FiStar /></a>}
+                {!!onEdit && <a {...propsEdit(value)}><FiEdit /></a>}
+                {!!linkify && <a {...propsLink(value)}><FiExternalLink /></a>}
+                {render(value)}
+            </div>)}
             {!filtered.length && <small>No more options</small>}
         </div>}
     </div>;
