@@ -131,6 +131,8 @@ export const Config = () => {
                     database.table('projects').clear(),
                     database.table('issues').clear(),
                     database.table('activities').clear(),
+                    database.table('priorities').clear(),
+                    database.table('statuses').clear(),
                     database.table('entries').clear(),
                     database.table('tasks').clear()
                 ]);
