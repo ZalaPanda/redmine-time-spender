@@ -1,44 +1,16 @@
 import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject } from 'react';
-import { css, Theme } from '@emotion/react';
-import { margin, padding } from 'polished';
-import { useDrag } from '@use-gesture/react';
-import { useSpring, animated, config } from '@react-spring/web';
-import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { useAsyncEffect } from './apis/uses';
+import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiTrash2, FiMessageSquare } from 'react-icons/fi';
 import { Activity, Entry, Issue, Project } from './apis/redmine';
 import { Select } from './atoms/Select';
 import { Textarea } from './atoms/Textarea';
+import { Dialog } from './Dialog';
 
-const editorStyles = (theme: Theme) => css({
-    position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
-    backgroundColor: theme.bg, borderWidth: 1, borderStyle: 'solid', borderColor: theme.border, boxShadow: `0 3px 9px ${theme.shadow}`
-});
-const titleStyles = (theme: Theme) => css({
-    display: 'flex', alignItems: 'center', ...padding(0, 10), backgroundColor: theme.title.bg, color: theme.title.text, fontWeight: 'bold',
-    userSelect: 'none', touchAction: 'none', cursor: 'grab',
-    '&:active': { cursor: 'grabbing' },
-});
-const fieldsStyles = (theme: Theme) => css({
-    '&>div': {
-        display: 'flex', alignItems: 'center', padding: 2,
-        '&>label': { color: theme.field.text }, // label with svg icon
-        '&>div': { flexGrow: 1 }, // project, issue, activity
-        '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
-    },
-    '&>div:focus-within': {
-        '&>label': { color: theme.field.focus }, // label with svg icon
-    },
-    '&>hr': { ...margin(0, 10, 0, 30), border: 0, borderBottom: 1, borderStyle: 'solid', borderColor: theme.border }
-});
-
-export const EditEntry = ({ show, entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onChangeFavorites, onDismiss, onDelete }) => {
+export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onChangeFavorites, onDismiss, onDelete }) => {
     const refs = useRef({
         issueSelect: undefined as HTMLInputElement
     });
-    const [minimized, setMinimized] = useState(false);
     const [entry, setEntry] = useState<Entry>();
     const { id, project, issue, activity, hours, comments, spent_on } = entry || {} as Entry;
-    const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }));
 
     const [rawProjects = [], rawIssues = [], rawActivities = []]: [Project[], Issue[], Activity[]] = lists ?? [];
     const [favoriteProjectIds = [], favoriteIssueIds = [], favoriteActivities = []]: [number[], number[], number[]] = favorites ?? [];
@@ -51,9 +23,6 @@ export const EditEntry = ({ show, entry: init, lists, favorites, baseUrl, hideIn
     const issues = useMemo(() => sort(project ? rawIssues.filter(issue => issue.project.id === project.id) : rawIssues, favoriteIssueIds), [rawIssues, favoriteIssueIds, project]);
     const activities = useMemo(() => sort(rawActivities, favoriteActivities), [rawActivities, favoriteActivities]);
 
-    const propsTitle = {
-        ...useDrag(({ down, offset: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, from: () => [0, y.get()] })()
-    };
     const propsProject = {
         placeholder: 'Project', value: project, values: projects,
         render: (project: Project) => <div title={project.description}>{project.name}</div>,
@@ -110,9 +79,6 @@ export const EditEntry = ({ show, entry: init, lists, favorites, baseUrl, hideIn
         title: 'Spent on', type: 'date', value: spent_on || '',
         onChange: (event: ChangeEvent<HTMLInputElement>) => setEntry(entry => ({ ...entry, spent_on: event.target.value }))
     };
-    const propsMinimize = {
-        title: minimized ? 'Maximize' : 'Minimize', onClick: () => setMinimized(minimized => !minimized)
-    };
     const propsSubmit = {
         title: 'Submit', onClick: () => onSubmit({ id, project, issue, hours, activity, comments, spent_on })
     };
@@ -126,50 +92,37 @@ export const EditEntry = ({ show, entry: init, lists, favorites, baseUrl, hideIn
         title: 'Delete', onClick: () => onDelete({ id })
     }
 
-    useAsyncEffect(async ({ aborted }) => { // animation and autofocus on entry change
-        await Promise.all(setSpring.start({ y: -400 }));
-        if (aborted) return;
-        if (!show) return;
-        refs.current.issueSelect.focus();
-        await Promise.all(setSpring.start({ y: 0 }));
-    }, [show]);
     useEffect(() => setEntry(init), [init]);
     useEffect(() => startTransition(() => entry ?
         window.localStorage.setItem('draft-entry', JSON.stringify(entry)) :
         window.localStorage.removeItem('draft-entry')), [entry]);
-    return <animated.div css={editorStyles} style={{ y, scale }}>
-        <div css={titleStyles} {...propsTitle}>
-            <label>{id ? 'Edit time entry' : 'New time entry'}</label>
-            <button {...propsMinimize}>{minimized ? <FiMinimize2 /> : <FiMaximize2 />}</button>
+    return <Dialog show={init} title={id ? 'Edit time entry' : 'New time entry'}>
+        <div>
+            <label title={'Project'}><FiPackage /></label>
+            <Select {...propsProject} />
         </div>
-        <div hidden={minimized} css={fieldsStyles}>
-            <div>
-                <label title={'Project'}><FiPackage /></label>
-                <Select {...propsProject} />
-            </div>
-            <hr />
-            <div>
-                <label title={'Issue'}><FiHash /></label>
-                <Select {...propsIssue} />
-            </div>
-            <hr />
-            <div>
-                <label title={'Hours'}><FiClock /></label>
-                <input {...propsHours} />
-                <Select {...propsActivity} />
-            </div>
-            <hr />
-            <div>
-                <label title={'Comments'}><FiMessageSquare /></label>
-                <Textarea {...propsComments} />
-            </div>
-            <div>
-                <button {...propsSubmit}><FiCheck /></button>
-                {id && <button {...propsDuplicate}><FiCopy /></button>}
-                <button {...propsClose}><FiX /></button>
-                <div><input {...propsSpentOn} /></div>
-                {id && <button {...propsDelete}><FiTrash2 /></button>}
-            </div>
+        <hr />
+        <div>
+            <label title={'Issue'}><FiHash /></label>
+            <Select {...propsIssue} />
         </div>
-    </animated.div>;
+        <hr />
+        <div>
+            <label title={'Hours'}><FiClock /></label>
+            <input {...propsHours} />
+            <Select {...propsActivity} />
+        </div>
+        <hr />
+        <div>
+            <label title={'Comments'}><FiMessageSquare /></label>
+            <Textarea {...propsComments} />
+        </div>
+        <div>
+            <button {...propsSubmit}><FiCheck /></button>
+            {id && <button {...propsDuplicate}><FiCopy /></button>}
+            <button {...propsClose}><FiX /></button>
+            <div><input {...propsSpentOn} /></div>
+            {id && <button {...propsDelete}><FiTrash2 /></button>}
+        </div>
+    </Dialog>;
 };
