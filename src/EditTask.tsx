@@ -14,7 +14,7 @@ const taskStyles = css({
 type Color = 'red' | 'green' | 'gray';
 const colors: Color[] = ['red', 'green', 'gray'];
 
-export interface TaskEntry {
+export interface Task {
     id: number,
     color: Color,
     value: string,
@@ -24,12 +24,12 @@ export interface TaskEntry {
 };
 
 export interface TaskProps {
-    task: TaskEntry,
-    onChange: (updated: Partial<TaskEntry>) => void,
+    task: Task,
+    onChange: (updated: Partial<Task>) => void,
     onDelete: () => void
-}
+};
 
-export const Task = ({ task: { color, value: current, created_on, updated_on, closed_on }, onChange, onDelete }: TaskProps) => {
+export const EditTask = ({ task: { color, value: current, created_on, updated_on, closed_on }, onChange, onDelete }: TaskProps) => {
     const nextColor = useMemo(() => colors[colors.indexOf(color) + 1], [color]);
     const title = useMemo(() => [
         created_on && ['Created', dayjs(created_on)],
