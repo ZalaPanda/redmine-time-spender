@@ -16,7 +16,7 @@ const toasterStyles = (theme: Theme) => css({
     }
 });
 const errorStyles = (theme: Theme) => css({
-    error: { color: theme.text, backgroundColor: theme.danger }
+    color: theme.text, backgroundColor: theme.danger
 });
 
 const Toast = ({ message = '', onDismiss = () => { }, ...props }) => {
