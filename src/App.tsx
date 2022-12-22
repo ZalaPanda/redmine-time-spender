@@ -1,21 +1,22 @@
 import { useState, useEffect, useMemo, useRef, startTransition, KeyboardEvent } from 'react';
 import { Globals } from '@react-spring/web';
-import { FiRefreshCw, FiClock, FiSettings, FiHome } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiSettings, FiHome, FiFilePlus, FiHash, FiAward } from 'react-icons/fi';
 import { css, Theme, ThemeProvider, Global } from '@emotion/react';
 import { margin } from 'polished';
 // import { loremIpsum } from 'lorem-ipsum';
 
 import { globalStyles, themes } from './themes';
 import { createCryptoApi, convertHexToBin } from './apis/crypto';
-import { createRedmineApi, RedmineAPI } from './apis/redmine';
+import { createRedmineApi, Entry, RedmineAPI } from './apis/redmine';
 import { createEntryptedDatabase } from './apis/database';
 import { useAsyncEffect, useRaise } from './apis/uses';
 
 import dayjs from 'dayjs';
 
-import { Editor } from './Editor';
+import { EditEntry } from './EditEntry';
+import { EditIssue } from './EditIssue';
 import { Day } from './Day';
-import { Task, TaskEntry } from './Task';
+import { EditTask, Task } from './EditTask';
 import { Toaster } from './Toaster';
 import { Bar } from './Bar';
 import { Database } from 'dexie';
@@ -62,6 +63,12 @@ export const cookie = (url: string) => ({
     }
 });
 
+export interface Favorites {
+    favoriteProjectIds: number[],
+    favoriteIssueIds: number[],
+    favoriteActivities: number[]
+}
+
 /** User settings stored in `chrome.storage.local` */
 export interface Settings {
     redmine?: { baseUrl: string, encodedKey: string },
@@ -72,7 +79,7 @@ export interface Settings {
     lastRefresh?: string,
     skipAnimation: boolean,
     hideInactive: { issues: boolean, activities: boolean },
-    favorites?: { favoriteProjectIds: number[], favoriteIssueIds: number[], favoriteActivities: number[] }
+    favorites?: Favorites
 };
 
 export const defaultSettings: Settings = {
@@ -117,15 +124,16 @@ export const App = () => {
     const [redmine, setRedmine] = useState<RedmineAPI>(); // Redmine API
     const [database, setDatabase] = useState<Database>(); // IndexedDb API
 
-    const [tasks, setTasks] = useState<TaskEntry[]>([]); // todo list items
+    const [tasks, setTasks] = useState<Task[]>([]); // todo list items
     const [entries, setEntries] = useState([]); // Redmine time entries
-    const [lists, setLists] = useState([[], [], []]); // projects, issues, activities
+    const [lists, setLists] = useState([[], [], [], [], []]); // projects, issues, activities, priorities, statuses
 
     const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
     const [search, setSearch] = useState<string | undefined>();
     const searching = search !== undefined;
     const [today, setToday] = useState(days[0]);
-    const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft'))); // saved in Editor on `unload` event
+    const [entry, setEntry] = useState(JSON.parse(window.localStorage.getItem('draft-entry'))); // saved in EditEntry in a useEffect
+    const [issue, setIssue] = useState(); // saved in EditEntry in a useEffect
 
     const filteredTasks = useMemo(() => {
         const exp = searching && RegExp((search || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
@@ -168,12 +176,17 @@ export const App = () => {
         startTransition(() => setEntries(entries.map(entry => ({ ...entry, issue: entry.issue && issues.find(issue => issue.id === entry.issue.id) }))));
     };
     const loadLists = async ({ aborted }) => { // load projects/issues/activities after load
-        const projects = await database.table('projects').toArray();
-        const issues = await database.table('issues').reverse().toArray();
-        const unsortedActivities = await database.table('activities').toArray();
+        const [projects, issues, unsortedActivities, unsortedPriorities, unsortedStatuses] = await Promise.all([
+            await database.table('projects').toArray(),
+            await database.table('issues').reverse().toArray(),
+            await database.table('activities').toArray(),
+            await database.table('priorities').toArray(),
+            await database.table('statuses').toArray()]);
         const activities = unsortedActivities.sort((a, b) => a.name.localeCompare(b.name));
+        const priorities = unsortedPriorities.sort((a, b) => a.name.localeCompare(b.name));
+        const statuses = unsortedStatuses.sort((a, b) => a.name.localeCompare(b.name));
         if (aborted) return;
-        startTransition(() => setLists([projects, issues, activities]));
+        startTransition(() => setLists([projects, issues, activities, priorities, statuses]));
     };
     useAsyncEffect(async ({ aborted }) => {
         if (!database) return;
@@ -211,7 +224,7 @@ export const App = () => {
             if (key === 'Enter') {
                 const props = { value, created_on: dayjs().toJSON() };
                 const id = await database.table('tasks').add(props);
-                const task = { id, ...props } as TaskEntry;
+                const task = { id, ...props } as Task;
                 setTasks(tasks => [task, ...tasks]);
                 target.value = '';
             }
@@ -266,13 +279,25 @@ export const App = () => {
                 await database.table('activities').where('id').noneOf(activities.map(activity => activity.id)).delete(); // remove unknown activities
                 await database.table('activities').bulkPut(activities);
             };
+            const refreshPriorities = async () => {
+                const priorities = await redmine.getPriorities();
+                await database.table('priorities').where('id').noneOf(priorities.map(activity => activity.id)).delete(); // remove unknown activities
+                await database.table('priorities').bulkPut(priorities);
+            };
+            const refreshStatuses = async () => {
+                const statuses = await redmine.getStatuses();
+                await database.table('statuses').where('id').noneOf(statuses.map(activity => activity.id)).delete(); // remove unknown activities
+                await database.table('statuses').bulkPut(statuses);
+            };
             try {
                 refs.current.refreshButton.disabled = true;
                 const [changedEntries, ...changedValues] = await Promise.all([
                     refreshEntries(),
                     refreshProjects(),
                     refreshIssues(),
-                    refreshActivities()
+                    refreshActivities(),
+                    refreshPriorities(),
+                    refreshStatuses()
                 ]);
                 if (changedEntries) loadEntries({ aborted: false });
                 if (changedValues.find(value => value)) loadLists({ aborted: false });
@@ -317,12 +342,13 @@ export const App = () => {
     //     }
     // });
 
-    const propsEditor = ({
-        entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive,
-        onSubmit: async ({ id, project, issue, hours, activity, comments, spent_on }) => {
+    const propsEditEntry = ({
+        show: !!entry, entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive,
+        onSubmit: async (entry: Entry) => {
             try {
+                const { id, project, issue, hours, activity, comments, spent_on } = entry;
                 if (id) { // update
-                    await redmine.updateEntry({ id, project, issue, hours, activity, comments, spent_on }); // 204 No Content: time entry was updated
+                    await redmine.updateEntry(entry); // 204 No Content: time entry was updated
                     const update = { // NOTE: `updated_on` not updated
                         ...project && { project: { id: project.id, name: project.name } },
                         ...issue && { issue: { id: issue.id } },
@@ -332,10 +358,10 @@ export const App = () => {
                     await database.table('entries').update(id, update);
                     setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, issue } : entry));
                 } else { // create
-                    const response = await redmine.createEntry({ project, issue, hours, activity, comments, spent_on });
-                    const { time_entry: entry } = await response.json();
-                    await database.table('entries').put(entry);
-                    setEntries(entries => [{ ...entry, issue }, ...entries]);
+                    const response = await redmine.createEntry(entry);
+                    const { time_entry: created } = await response.json();
+                    await database.table('entries').put(created);
+                    setEntries(entries => [{ ...created, issue }, ...entries]);
                 }
                 setEntry(undefined);
                 refs.current.addEntryButton.focus();
@@ -343,9 +369,10 @@ export const App = () => {
                 raiseError(error);
             }
         },
-        onDelete: async ({ id }) => {
+        onDelete: async (entry: Entry) => {
             try {
-                await redmine.deleteEntry({ id });
+                const { id } = entry;
+                await redmine.deleteEntry(entry);
                 await database.table('entries').delete(id);
                 setEntries(entries => entries.filter(entry => entry.id !== id));
                 setEntry(undefined);
@@ -355,7 +382,7 @@ export const App = () => {
             }
         },
         onDuplicate: (entry) => setEntry(entry),
-        onChangeFavorites: async (favorites) => {
+        onChangeFavorites: async (favorites: Favorites) => {
             try {
                 await storage.set({ favorites });
                 setSettings(settings => ({ ...settings, favorites }));
@@ -369,9 +396,63 @@ export const App = () => {
         }
     });
 
-    const propsTask = (task) => ({
+    const propsEditIssue = ({
+        show: !!issue, issue, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive,
+        onSubmit: async (entry: Entry) => {
+            // try {
+            //     const { id, project, issue, hours, activity, comments, spent_on } = entry;
+            //     if (id) { // update
+            //         await redmine.updateEntry(entry); // 204 No Content: time entry was updated
+            //         const update = { // NOTE: `updated_on` not updated
+            //             ...project && { project: { id: project.id, name: project.name } },
+            //             ...issue && { issue: { id: issue.id } },
+            //             ...activity && { activity: { id: activity.id, name: activity.name } },
+            //             hours, comments, spent_on
+            //         };
+            //         await database.table('entries').update(id, update);
+            //         setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, issue } : entry));
+            //     } else { // create
+            //         const response = await redmine.createEntry(entry);
+            //         const { time_entry: created } = await response.json();
+            //         await database.table('entries').put(created);
+            //         setEntries(entries => [{ ...created, issue }, ...entries]);
+            //     }
+            //     setEntry(undefined);
+            //     refs.current.addEntryButton.focus();
+            // } catch (error) {
+            //     raiseError(error);
+            // }
+        },
+        onDelete: async (entry: Entry) => {
+            // try {
+            //     const { id } = entry;
+            //     await redmine.deleteEntry(entry);
+            //     await database.table('entries').delete(id);
+            //     setEntries(entries => entries.filter(entry => entry.id !== id));
+            //     setEntry(undefined);
+            //     refs.current.addEntryButton.focus();
+            // } catch (error) {
+            //     raiseError(error);
+            // }
+        },
+        onDuplicate: (entry) => setEntry(entry),
+        onChangeFavorites: async (favorites: Favorites) => {
+            // try {
+            //     await storage.set({ favorites });
+            //     setSettings(settings => ({ ...settings, favorites }));
+            // } catch (error) {
+            //     raiseError(error);
+            // }
+        },
+        onDismiss: () => {
+            // setEntry(undefined);
+            // refs.current.addEntryButton.focus();
+        }
+    });
+
+    const propsTask = (task: Task) => ({
         task, key: task.id,
-        onChange: async (props) => {
+        onChange: async (props: Task) => {
             try {
                 const { id } = task;
                 await database.table('tasks').update(id, props);
@@ -400,9 +481,11 @@ export const App = () => {
     useEffect(() => searching ? refs.current.searchInput?.focus() : refs.current.addEntryButton?.focus(), [searching]); // focus on add entry button / search input
     return <ThemeProvider theme={theme}>
         <Global styles={appStyles} />
-        <Editor {...propsEditor} />
+        <EditEntry {...propsEditEntry} />
+        <EditIssue {...propsEditIssue} />
         <Toaster />
         <div {...propsTitle}>
+            <button><FiHash title={'Add issue'} onClick={() => setIssue({ subject: 'Test' })} /></button>
             <button {...propsAddEntryButton}><FiClock /></button>
             <input {...propsAddTaskInput} />
             <input {...propsSearchInput} />
@@ -412,7 +495,7 @@ export const App = () => {
             {/* <button {...propsCipherButton}><FiCoffee /></button> */}
         </div>
         <Bar />
-        {filteredTasks.map(task => <Task {...propsTask(task)} />)}
+        {filteredTasks.map(task => <EditTask {...propsTask(task)} />)}
         {days.map(day => <Day {...propsDay(day)} />)}
     </ThemeProvider>;
 };
