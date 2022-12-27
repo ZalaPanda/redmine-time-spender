@@ -1,7 +1,11 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, HTMLAttributes } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 
-export const Collapsible = ({ open, children, ...props }) => {
+interface CollapsibleProps extends HTMLAttributes<HTMLDivElement> {
+    open: boolean
+};
+
+export const Collapsible = ({ open, children, ...props }: CollapsibleProps) => {
     const element = useRef<HTMLDivElement>();
     const [{ height }, setSpring] = useSpring(() => ({ height: 0, immediate: true }));
     useEffect(() => {

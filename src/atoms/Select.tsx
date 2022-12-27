@@ -38,10 +38,10 @@ interface SelectProps<T> {
     value: T | undefined,
     values: T[],
     placeholder?: string,
-    render?: (value: T, short?: boolean) => any,
-    stringlify?: (value: T) => string,
+    render: (value: T, short?: boolean) => any,
+    filter: (exp: RegExp) => (value: T) => boolean,
+    stringlify: (value: T) => string,
     linkify?: (value: T) => string | undefined,
-    filter?: (exp: RegExp) => (value: T) => boolean,
     onEdit?: (search: string, value: T) => void,
     onChange?: (value?: T) => void,
     onFavorite?: (value: T) => void,
@@ -51,10 +51,9 @@ interface SelectProps<T> {
 export const Select = <T extends {}>({
     value: current, values, placeholder,
     render = value => <>{value}</>,
-    stringlify = value => String(value),
-    linkify = _value => null,
     filter = exp => value => exp.test(String(value)),
-    onEdit, onChange, onFavorite, onMount,
+    stringlify = value => String(value),
+    linkify, onEdit, onChange, onFavorite, onMount,
     ...props
 }: SelectProps<T>) => {
     const refs = useRef({

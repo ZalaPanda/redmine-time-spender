@@ -1,6 +1,10 @@
 import { useEffect, useRef, HTMLAttributes } from 'react';
 
-export const Textarea = (props: { value: string } & HTMLAttributes<HTMLTextAreaElement>) => {
+interface TextareaProps extends HTMLAttributes<HTMLTextAreaElement> {
+    value: string
+};
+
+export const Textarea = (props: TextareaProps) => {
     const element = useRef<HTMLTextAreaElement>();
     useEffect(() => {
         element.current.style.height = '0px'; // reset height
