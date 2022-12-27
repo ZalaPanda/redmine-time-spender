@@ -196,6 +196,10 @@ export const Config = () => {
         checked: hideInactive.activities, css: checkboxStyles,
         onChange: (activities: boolean) => changeSettings({ hideInactive: { ...hideInactive, activities } })
     };
+    const propsHideInactivePrioritiesCheckbox = {
+        checked: hideInactive.priorities, css: checkboxStyles,
+        onChange: (priorities: boolean) => changeSettings({ hideInactive: { ...hideInactive, priorities } })
+    };
     const propsExtensionsShortcutsLink = {
         href: 'chrome://extensions/shortcuts', target: '_blank',
         onClick: (event: MouseEvent<HTMLAnchorElement>) => {
@@ -246,6 +250,7 @@ export const Config = () => {
                 <label>Hide inactive:</label>
                 <Checkbox {...propsHideInactiveIssuesCheckbox}>Issues</Checkbox>
                 <Checkbox {...propsHideInactiveActivitiesCheckbox}>Activities</Checkbox>
+                <Checkbox {...propsHideInactivePrioritiesCheckbox}>Prios</Checkbox>
             </section>
             <section>
                 <label>Hotkey:</label>
