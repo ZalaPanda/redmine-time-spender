@@ -1,5 +1,10 @@
+export type Reference = {
+    id: number,
+    name: string
+};
+
 /** @see https://www.redmine.org/projects/redmine/wiki/Rest_Enumerations#enumerationsissue_prioritiesformat */
-export interface Priority {
+export type Priority = {
     id: number,
     name: string,
     is_default: boolean,
@@ -7,77 +12,82 @@ export interface Priority {
 }
 
 /** @see https://www.redmine.org/projects/redmine/wiki/Rest_Enumerations#enumerationstime_entry_activitiesformat */
-export interface Activity {
+export type Activity = {
     id: number,
-    name: string,
+    name: string
     active: boolean
 };
 
 /** @see https://www.redmine.org/projects/redmine/wiki/Rest_IssueStatuses */
-export interface Status {
+export type Status = {
     id: number,
     name: string,
     is_closed: boolean
 };
 
 /** @see https://www.redmine.org/projects/redmine/wiki/Rest_Trackers */
-export interface Tracker {
+export type Tracker = {
     id: number,
     name: string,
     default_status: Status
 };
 
-export interface Category {
+export type Category = {
     id: number,
     name: string
 }
 
-export interface CustomField {
+export type CustomField = {
     id?: number,
     name: string,
-    value: string
+    multiple?: boolean,
+    value: string | string[]
 }
 
 /** @see https://www.redmine.org/projects/redmine/wiki/Rest_Projects#Listing-projects */
-export interface Project {
+export type Project = {
     id: number,
     name: string,
     identifier: string,
     description: string,
-    trackers: Tracker[], // { id: number, name: string }[]
-    issue_categories: Category[], // { id: number, name: string }[]
+    trackers: Reference[],
+    issue_categories: Reference[],
     created_on: string, // yyyy-MM-ddTHH:mm:ssZ
     updated_on: string // yyyy-MM-ddTHH:mm:ssZ
 };
 
-/** @see https://www.redmine.org/projects/redmine/wiki/Rest_Issues#Listing-issues */
-export interface Issue {
+export type Issue = {
     id: number,
-    project: Project, // { id: number, name: string }
-    tracker: Tracker, // { id: number, name: string }
-    status: Status,
-    priority: Priority, // { id: number, name: string }
+    project: Reference,
     subject: string,
     description: string,
-    category: Category,
-    custom_fields: CustomField[],
-    // start_date: string, // yyyy-MM-dd
-    // due_date: string, // yyyy-MM-dd
-    // done_ratio: number,
-    is_private: boolean,
-    estimated_hours?: number,
-    // spent_hours: number,
     created_on: string, // yyyy-MM-ddTHH:mm:ssZ
     updated_on: string, // yyyy-MM-ddTHH:mm:ssZ
     closed_on: string // yyyy-MM-ddTHH:mm:ssZ
 };
 
+/** @see https://www.redmine.org/projects/redmine/wiki/Rest_Issues#Listing-issues */
+export type IssueExt = Issue & {
+    project: Project,
+    tracker: Reference,
+    status: Status,
+    allowed_statuses?: Status[], // since 5.0.x
+    priority: Reference,
+    category: Category,
+    custom_fields: CustomField[],
+    start_date: string, // yyyy-MM-dd
+    due_date: string, // yyyy-MM-dd
+    done_ratio: number,
+    is_private: boolean,
+    estimated_hours?: number
+};
+
 /** @see https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Listing-time-entries */
-export interface Entry {
+export type Entry = {
     id: number,
-    project: Project, // { id: number, name: string }
-    issue?: Issue, // { id: number }
-    activity: Activity, // { id: number, name: string }
+    project: Reference,
+    issue?: { id: number },
+    activity: Reference,
     hours: number,
     comments: string,
     spent_on: string, // yyyy-MM-dd
@@ -85,21 +95,28 @@ export interface Entry {
     updated_on: string // yyyy-MM-ddTHH:mm:ssZ
 };
 
+export type EntryExt = Entry & {
+    project: Project,
+    issue?: Issue,
+    activity: Activity
+};
+
 /** Redmine API */
 export interface RedmineAPI {
     getEntries: (fromDay: string) => Promise<Entry[]>,
     getProjects: () => Promise<Project[]>,
-    getIssues: (updatedAfter: string) => Promise<Issue[]>
+    getIssues: (updatedAfter: string) => Promise<Issue[]>,
+    getIssueById: (id: number) => Promise<IssueExt & { project: Reference }>,
     getActivities: () => Promise<Activity[]>,
     getPriorities: () => Promise<Priority[]>,
     getStatuses: () => Promise<Status[]>,
     getUser: () => Promise<Response>,
-    createEntry: (entry: Entry) => Promise<Response>,
-    updateEntry: (entry: Entry) => Promise<Response>,
-    deleteEntry: (entry: Entry) => Promise<Response>,
-    createIssue: (entry: Issue) => Promise<Response>,
-    updateIssue: (entry: Issue) => Promise<Response>,
-    deleteIssue: (entry: Issue) => Promise<Response>
+    createEntry: (entry: Partial<EntryExt>) => Promise<Response>,
+    updateEntry: (entry: Partial<EntryExt>) => Promise<Response>,
+    deleteEntry: (entry: Partial<EntryExt>) => Promise<Response>,
+    createIssue: (issue: Partial<IssueExt>) => Promise<Response>,
+    updateIssue: (issue: Partial<IssueExt>) => Promise<Response>,
+    deleteIssue: (issue: Partial<IssueExt>) => Promise<Response>
 };
 
 /** Create Redmine API with base URL and API key */
@@ -136,19 +153,18 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         raiseProgress('projects');
         const projects = [];
         while (true) {
-            const response = await fetchRedmine(`/projects.json?include=trackers,issue_categories&limit=100&offset=${projects.length}`);
+            const response = await fetchRedmine(`/projects.json?include=trackers,issue_categories,issue_custom_fields,time_entry_activities&limit=100&offset=${projects.length}`);
             const { projects: chunk, total_count: total, offset, limit } = await response.json() as { projects: Project[], total_count: number, offset: number, limit: number };
             projects.push(...chunk.map(({
-                id, name, identifier, description, trackers, created_on, updated_on
+                id, name, identifier, description, trackers, issue_categories, created_on, updated_on
             }) => ({
-                id, name, identifier, description, trackers, created_on, updated_on
+                id, name, identifier, description, trackers, issue_categories, created_on, updated_on
             })));
             raiseProgress('projects', projects.length, total);
             if (total <= limit + offset) break;
         }
         return projects;
     };
-
     const getIssues = async (updatedAfter: string) => { // API: https://www.redmine.org/projects/redmine/wiki/Rest_Issues#Listing-issues
         raiseProgress('issues');
         const issues = [];
@@ -156,14 +172,19 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
             const response = await fetchRedmine(`/issues.json?limit=100&offset=${issues.length}&status_id=*${updatedAfter ? `&updated_on=>=${updatedAfter}` : ''}`);
             const { issues: chunk, total_count: total, offset, limit } = await response.json() as { issues: Issue[], total_count: number, offset: number, limit: number };
             issues.push(...chunk.map(({
-                id, project, tracker, status, priority, subject, description, category, is_private, estimated_hours, created_on, updated_on, closed_on
+                id, project, subject, description, created_on, updated_on, closed_on
             }) => ({
-                id, project, tracker, status, priority, subject, description, category, is_private, estimated_hours, created_on, updated_on, closed_on
+                id, project, subject, description, created_on, updated_on, closed_on
             })));
             raiseProgress('issues', issues.length, total);
             if (total <= limit + offset) break;
         }
         return issues;
+    };
+    const getIssueById = async (id: number) => {
+        const response = await fetchRedmine(`/issues/${id}.json?include=allowed_statuses`);
+        const { issue } = await response.json() as { issue: IssueExt };
+        return issue;
     };
     const getActivities = async () => { // API: https://www.redmine.org/projects/redmine/wiki/Rest_Enumerations#enumerationstime_entry_activitiesformat
         raiseProgress('activities');
@@ -190,7 +211,7 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         return await fetchRedmine('/my/account.json'); // {"user":{ "id":1, ... }}
     }
     /** API https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry */
-    const createEntry = async (entry: Entry) => {
+    const createEntry = async (entry: Partial<EntryExt>) => {
         const { project, issue, hours, activity, comments, spent_on } = entry;
         const body = JSON.stringify({
             time_entry: {
@@ -202,7 +223,7 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         });
         return await fetchRedmine(`/time_entries.json`, 'POST', body);
     };
-    const updateEntry = async (entry: Entry) => {
+    const updateEntry = async (entry: Partial<EntryExt>) => {
         const { id, project, issue, hours, activity, comments, spent_on } = entry;
         const body = JSON.stringify({
             time_entry: {
@@ -214,11 +235,15 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         });
         return await fetchRedmine(`/time_entries/${id}.json`, 'PUT', body);
     };
-    const deleteEntry = async (entry: Entry) => {
+    const deleteEntry = async (entry: Partial<EntryExt>) => {
         const { id } = entry;
         return await fetchRedmine(`/time_entries/${id}.json`, 'DELETE');
     };
-    const createIssue = async (issue: Issue) => {
+
+    // mandatory: project, subject
+    // "assigned_to_id": "me" or blank
+
+    const createIssue = async (issue: Partial<IssueExt>) => {
         const { project, tracker, status, priority, subject, description, category, custom_fields, is_private, estimated_hours } = issue;
         const body = JSON.stringify({
             issue: {
@@ -237,7 +262,7 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         });
         return await fetchRedmine(`/issues.json`, 'POST', body);
     };
-    const updateIssue = async (issue: Partial<Issue>) => {
+    const updateIssue = async (issue: Partial<IssueExt>) => {
         const { id, project, tracker, status, priority, subject, description, category, is_private, estimated_hours } = issue;
         const body = JSON.stringify({
             issue: {
@@ -256,12 +281,12 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         });
         return await fetchRedmine(`/issues/${id}.json`, 'PUT', body);
     };
-    const deleteIssue = async (issue: Issue) => {
+    const deleteIssue = async (issue: Partial<IssueExt>) => {
         const { id } = issue;
         return await fetchRedmine(`/issues/${id}.json`, 'DELETE');
     };
     return {
-        getEntries, getProjects, getIssues, getActivities, getPriorities, getStatuses, getUser,
+        getEntries, getProjects, getIssues, getIssueById, getActivities, getPriorities, getStatuses, getUser,
         createEntry, updateEntry, deleteEntry, createIssue, updateIssue, deleteIssue
     };
 };
