@@ -19,7 +19,7 @@ const fieldsStyles = (theme: Theme) => css({
     '&>div': {
         display: 'flex', alignItems: 'center', padding: 2,
         '&>label': { color: theme.field.text }, // label with svg icon
-        '&>div': { flexGrow: 1 }, // project, issue, activity
+        '&>div, &>input': { flexGrow: 1 }, // project, issue, activity
         '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
     },
     '&>div:focus-within': {
