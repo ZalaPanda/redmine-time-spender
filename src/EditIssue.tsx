@@ -1,72 +1,98 @@
 import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject } from 'react';
-import { css, Theme } from '@emotion/react';
-import { margin, padding } from 'polished';
-import { useDrag } from '@use-gesture/react';
-import { useSpring, animated, config } from '@react-spring/web';
-import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { useAsyncEffect } from './apis/uses';
-import { Activity, Entry, Issue, Project } from './apis/redmine';
+import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare, FiSmile } from 'react-icons/fi';
+import { Activity, Category, Entry, Issue, IssueExt, Priority, Project, Status, Tracker } from './apis/redmine';
+import { Favorites, Lists } from './App';
+import { Checkbox } from './atoms/Checkbox';
 import { Select } from './atoms/Select';
 import { Textarea } from './atoms/Textarea';
 import { Dialog } from './Dialog';
 
-// const editorStyles = (theme: Theme) => css({
-//     position: 'fixed', zIndex: 1, width: 420, margin: 8, padding: 8,
-//     backgroundColor: theme.bg, borderWidth: 1, borderStyle: 'solid', borderColor: theme.border, boxShadow: `0 3px 9px ${theme.shadow}`
-// });
-// const titleStyles = (theme: Theme) => css({
-//     display: 'flex', alignItems: 'center', ...padding(0, 10), backgroundColor: theme.title.bg, color: theme.title.text, fontWeight: 'bold',
-//     userSelect: 'none', touchAction: 'none', cursor: 'grab',
-//     '&:active': { cursor: 'grabbing' },
-// });
-// const fieldsStyles = (theme: Theme) => css({
-//     '&>div': {
-//         display: 'flex', alignItems: 'center', padding: 2,
-//         '&>label': { color: theme.field.text }, // label with svg icon
-//         '&>div': { flexGrow: 1 }, // project, issue, activity
-//         '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
-//     },
-//     '&>div:focus-within': {
-//         '&>label': { color: theme.field.focus }, // label with svg icon
-//     },
-//     '&>hr': { ...margin(0, 10, 0, 30), border: 0, borderBottom: 1, borderStyle: 'solid', borderColor: theme.border }
-// });
+interface EditEntryProps {
+    issue: Partial<IssueExt>,
+    lists: Lists,
+    favorites: Favorites,
+    baseUrl?: string,
+    hideInactive?: { issues: boolean, activities: boolean },
+    onSubmit: (entry: Partial<Issue>) => void,
+    onDelete: (entry: Partial<Issue>) => void
+    onChangeFavorites: (favorites: Favorites) => void,
+    onDismiss: () => void,
+};
 
-export const EditIssue = ({ show, issue: init, lists, favorites, baseUrl }) => {
-    // const refs = useRef({
-    //     issueSelect: undefined as HTMLInputElement
-    // });
-    // const [minimized, setMinimized] = useState(false);
-    // const [entry, setEntry] = useState<Entry>();
-    // const { id, project, issue, activity, hours, comments, spent_on } = entry || {} as Entry;
-    // const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }));
+export const EditIssue = ({ issue: init, lists, favorites, baseUrl, onSubmit, onDelete, onChangeFavorites, onDismiss }: EditEntryProps) => {
+    const refs = useRef({
+        projectSelect: undefined as HTMLInputElement,
+        subjectInput: undefined as HTMLInputElement
+    });
+    const [issue, setIssue] = useState<Partial<IssueExt>>();
+    const { id, project, tracker, status, allowed_statuses, priority, subject, description, category, is_private, estimated_hours, done_ratio, start_date, due_date } = issue || {} as IssueExt;
 
-    // const [rawProjects = [], rawIssues = [], rawActivities = []]: [Project[], Issue[], Activity[]] = lists ?? [];
-    // const [favoriteProjectIds = [], favoriteIssueIds = [], favoriteActivities = []]: [number[], number[], number[]] = favorites ?? [];
+    const sort = <T extends { id: number }>(list: T[], favoriteIds: number[] = []): Array<T & { favorite: boolean }> => {
+        const [favorites, rest] = list.reduce(([favorites, rest], item) => favoriteIds.includes(item.id) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
+        return [...favorites.map(item => ({ ...item, favorite: true })), ...rest];
+    };
+    const projects = useMemo(() => sort(lists.projects, favorites?.projects), [lists.projects, favorites?.projects]);
+    const categories = useMemo(() => sort(project?.issue_categories || [], favorites?.categories), [project, favorites?.categories]);
+    const trackers = useMemo(() => sort(project?.trackers || [], favorites?.trackers), [project, favorites?.trackers]);
+    const priorities = useMemo(() => sort(lists.priorities, favorites?.priorities), [lists.priorities, favorites?.priorities]);
+    const statuses = useMemo(() => sort(allowed_statuses || lists.statuses, favorites?.statuses), [allowed_statuses, lists.statuses, favorites?.statuses]);
 
-    // const sort = <T extends { id: number }>(list: T[], favoriteIds: number[]): Array<T & { favorite: boolean }> => {
-    //     const [favorites, rest] = list.reduce(([favorites, rest], item) => favoriteIds.includes(item.id) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
-    //     return [...favorites.map(item => ({ ...item, favorite: true })), ...rest];
-    // };
-    // const projects = useMemo(() => sort(rawProjects, favoriteProjectIds), [rawProjects, favoriteProjectIds]);
-    // const issues = useMemo(() => sort(project ? rawIssues.filter(issue => issue.project.id === project.id) : rawIssues, favoriteIssueIds), [rawIssues, favoriteIssueIds, project]);
-    // const activities = useMemo(() => sort(rawActivities, favoriteActivities), [rawActivities, favoriteActivities]);
+    const propsProject = {
+        placeholder: 'Project', value: project, values: projects, style: { width: 360 },
+        render: (project: Project) => <div title={project.description}>{project.name}</div>,
+        stringlify: (project: Project) => String(project.id),
+        linkify: (project: Project) => `${baseUrl}/projects/${project.id}`,
+        filter: (filter: RegExp) => (project: Project) => filter.test(project.name),
+        onChange: (project: Project) => setIssue(issue => ({ ...issue, project })),
+        onFavorite: (project: Project & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, projects: project.favorite ? (favorites?.projects || []).filter(id => id !== project.id) : (favorites?.projects || []).concat(project.id)
+        })
+    };
 
-    // const propsTitle = {
-    //     ...useDrag(({ down, offset: [_, y] }) => setSpring.start({ y, scale: down ? 1.05 : 1 }), { delay: true, from: () => [0, y.get()] })()
-    // };
-    // const propsProject = {
-    //     placeholder: 'Project', value: project, values: projects,
-    //     render: (project: Project) => <div title={project.description}>{project.name}</div>,
-    //     stringlify: (project: Project) => String(project.id),
-    //     linkify: (project: Project) => `${baseUrl}/projects/${project.id}`,
-    //     filter: (filter: RegExp) => (project: Project) => filter.test(project.name),
-    //     onChange: (project: Project) => setEntry(entry => ({ ...entry, project, issue: undefined })),
-    //     onFavorite: (project: Project & { favorite: boolean }) => onChangeFavorites([
-    //         project.favorite ? favoriteProjectIds.filter(id => id !== project.id) : favoriteProjectIds.concat(project.id),
-    //         favoriteIssueIds, favoriteActivities
-    //     ])
-    // };
+    const propsTracker = {
+        placeholder: 'Tracker', value: tracker, values: trackers,
+        render: (tracker: Tracker) => <div>{tracker.name}</div>,
+        stringlify: (tracker: Tracker) => String(tracker.id),
+        filter: (filter: RegExp) => (tracker: Tracker) => filter.test(tracker.name),
+        onChange: (tracker: Tracker) => setIssue(issue => ({ ...issue, tracker })),
+        onFavorite: (tracker: Tracker & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, trackers: tracker.favorite ? (favorites?.trackers || []).filter(id => id !== tracker.id) : (favorites?.trackers || []).concat(tracker.id)
+        })
+    };
+
+    const propsCategory = {
+        placeholder: 'Category', value: category, values: categories,
+        render: (category: Category) => <div>{category.name}</div>,
+        stringlify: (category: Category) => String(category.id),
+        filter: (filter: RegExp) => (category: Category) => filter.test(category.name),
+        onChange: (category: Category) => setIssue(issue => ({ ...issue, category })),
+        onFavorite: (category: Category & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, categories: category.favorite ? (favorites?.categories || []).filter(id => id !== category.id) : (favorites?.categories || []).concat(category.id)
+        })
+    };
+
+    const propsPriority = {
+        placeholder: 'Priority', value: priority, values: priorities,
+        render: (priority: Priority) => <div>{priority.name}</div>,
+        stringlify: (priority: Priority) => String(priority.id),
+        filter: (filter: RegExp) => (priority: Priority) => filter.test(priority.name),
+        onChange: (priority: Priority) => setIssue(issue => ({ ...issue, priority })),
+        onFavorite: (priority: Priority & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, priorities: priority.favorite ? (favorites?.priorities || []).filter(id => id !== priority.id) : (favorites?.priorities || []).concat(priority.id)
+        })
+    };
+
+    const propsStatus = {
+        placeholder: 'Status', value: status, values: statuses,
+        render: (status: Status) => <div>{status.name}</div>,
+        stringlify: (status: Status) => String(status.id),
+        filter: (filter: RegExp) => (status: Status) => filter.test(status.name),
+        onChange: (status: Status) => setIssue(issue => ({ ...issue, status })),
+        onFavorite: (status: Status & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, priorities: status.favorite ? (favorites?.statuses || []).filter(id => id !== status.id) : (favorites?.statuses || []).concat(status.id)
+        })
+    };
+
     // const propsIssue = {
     //     placeholder: 'Issue', value: issue, values: issues,
     //     render: (issue: Issue, short: boolean) => short ?
@@ -103,42 +129,81 @@ export const EditIssue = ({ show, issue: init, lists, favorites, baseUrl }) => {
     //         activity.favorite ? favoriteActivities.filter(id => id !== activity.id) : favoriteActivities.concat(activity.id)
     //     ]),
     // };
-    // const propsComments = {
-    //     placeholder: 'Comments', value: comments || '',
-    //     onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setEntry(entry => ({ ...entry, comments: event.target.value }))
-    // };
-    // const propsSpentOn = {
-    //     title: 'Spent on', type: 'date', value: spent_on || '',
-    //     onChange: (event: ChangeEvent<HTMLInputElement>) => setEntry(entry => ({ ...entry, spent_on: event.target.value }))
-    // };
-    // const propsMinimize = {
-    //     title: minimized ? 'Maximize' : 'Minimize', onClick: () => setMinimized(minimized => !minimized)
-    // };
-    // const propsSubmit = {
-    //     title: 'Submit', onClick: () => onSubmit({ id, project, issue, hours, activity, comments, spent_on })
-    // };
-    // const propsDuplicate = {
-    //     title: 'Duplicate', onClick: () => onDuplicate({ project, issue, hours, activity, comments, spent_on })
-    // }
-    // const propsClose = {
-    //     title: 'Close', onClick: () => onDismiss()
-    // }
-    // const propsDelete = {
-    //     title: 'Delete', onClick: () => onDelete({ id })
-    // }
+    const propsSubject = {
+        placeholder: 'Subject', value: subject || '',
+        onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({ ...issue, subject: event.target.value }))
+    };
+    const propsDescription = {
+        placeholder: 'Description', value: description || '',
+        onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({ ...issue, description: event.target.value }))
+    };
 
-    // useAsyncEffect(async ({ aborted }) => { // animation and autofocus on entry change
-    //     await Promise.all(setSpring.start({ y: -400 }));
-    //     if (aborted) return;
-    //     if (!show) return;
-    //     refs.current.issueSelect.focus();
-    //     await Promise.all(setSpring.start({ y: 0 }));
-    // }, [show]);
-    // useEffect(() => setEntry(init), [init]);
-    // useEffect(() => startTransition(() => entry ?
-    //     window.localStorage.setItem('draft-entry', JSON.stringify(entry)) :
-    //     window.localStorage.removeItem('draft-entry')), [entry]);
-    return <Dialog show={show} title={'Edit issue'}>
-        <div>{init?.subject}</div>
+    const propsEstimatedHours = {
+        placeholder: 'Estimated', value: estimated_hours || '', type: 'number', min: 0, step: 0.25, css: { width: 80 },
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, estimated_hours: Number(event.target.value) }))
+    };
+    const propsDoneRatio = {
+        placeholder: 'Done%', value: done_ratio || '', type: 'number', min: 0, max: 100, step: 10, css: { width: 80 },
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, done_ratio: Number(event.target.value) }))
+    };
+    const propsStartDate = {
+        title: 'Start date', type: 'date', value: start_date || '',
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, start_date: event.target.value }))
+    };
+    const propsDueDate = {
+        title: 'Due date', type: 'date', value: due_date || '',
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, due_date: event.target.value }))
+    };
+
+    const propsSubmit = {
+        title: 'Submit', onClick: () => onSubmit({}) // TODO: !!!
+    };
+    const propsClose = {
+        title: 'Close', onClick: () => onDismiss()
+    };
+    const propsDelete = {
+        title: 'Delete', onClick: () => onDelete({ id })
+    };
+
+    useEffect(() => setIssue(init), [init]);
+    useEffect(() => startTransition(() => issue ?
+        window.localStorage.setItem('draft-issue', JSON.stringify(issue)) :
+        window.localStorage.removeItem('draft-issue')), [issue]);
+    return <Dialog show={init} title={id ? `#${id} issue` : `New issue`}>
+        <div>
+            <label title={'Project'}><FiPackage /></label>
+            <Select {...propsProject} />
+            <Select {...propsTracker} />
+        </div>
+        <hr />
+        <div>
+            <label title={'Subject'}><FiHash /></label>
+            <Textarea {...propsSubject} />
+        </div>
+        <div>
+            <label title={'Description'}><FiMessageSquare /></label>
+            <Textarea {...propsDescription} />
+        </div>
+        <hr />
+        <div>
+            <label title={'Category'}><FiHash /></label>
+            <Select {...propsStatus} />
+            <Select {...propsPriority} />
+            <Select {...propsCategory} />
+        </div>
+        <hr />
+        <div>
+            <label title={'Dates'}><FiClock /></label>
+            <input {...propsStartDate} />
+            <input {...propsDueDate} />
+            {/* <input {...propsEstimatedHours} /> */}
+            {/* <input {...propsDoneRatio} /> */}
+        </div>
+        <div>
+            <button {...propsSubmit}><FiCheck /></button>
+            <button {...propsClose}><FiX /></button>
+            <Checkbox checked={false}>Assign to me</Checkbox>
+            {id && <button {...propsDelete}><FiTrash2 /></button>}
+        </div>
     </Dialog>;
 };

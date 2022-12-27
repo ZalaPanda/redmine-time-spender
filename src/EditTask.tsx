@@ -14,7 +14,7 @@ const taskStyles = css({
 type Color = 'red' | 'green' | 'gray';
 const colors: Color[] = ['red', 'green', 'gray'];
 
-export interface Task {
+export type Task = {
     id: number,
     color: Color,
     value: string,
@@ -23,7 +23,7 @@ export interface Task {
     closed_on: string | undefined
 };
 
-export interface TaskProps {
+interface TaskProps {
     task: Task,
     onChange: (updated: Partial<Task>) => void,
     onDelete: () => void

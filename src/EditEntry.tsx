@@ -1,27 +1,39 @@
 import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject } from 'react';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiTrash2, FiMessageSquare } from 'react-icons/fi';
-import { Activity, Entry, Issue, Project } from './apis/redmine';
+import { Activity, EntryExt, Issue, Project } from './apis/redmine';
+import { Favorites, Lists } from './App';
 import { Select } from './atoms/Select';
 import { Textarea } from './atoms/Textarea';
 import { Dialog } from './Dialog';
 
-export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onChangeFavorites, onDismiss, onDelete }) => {
+interface EditEntryProps {
+    entry: Partial<EntryExt>,
+    lists: Lists,
+    favorites?: Favorites,
+    baseUrl?: string,
+    hideInactive?: { issues: boolean },
+    onSubmit: (entry: Partial<EntryExt>) => void,
+    onDuplicate: (entry: Partial<EntryExt>) => void,
+    onDelete: (entry: Partial<EntryExt>) => void,
+    onEditIssue: (issue: Partial<Issue>) => void,
+    onChangeFavorites: (favorites: Favorites) => void,
+    onDismiss: () => void,
+};
+
+export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onDelete, onEditIssue, onChangeFavorites, onDismiss }: EditEntryProps) => {
     const refs = useRef({
         issueSelect: undefined as HTMLInputElement
     });
-    const [entry, setEntry] = useState<Entry>();
-    const { id, project, issue, activity, hours, comments, spent_on } = entry || {} as Entry;
+    const [entry, setEntry] = useState<Partial<EntryExt>>();
+    const { id, project, issue, activity, hours, comments, spent_on } = entry || {};
 
-    const [rawProjects = [], rawIssues = [], rawActivities = []]: [Project[], Issue[], Activity[]] = lists ?? [];
-    const [favoriteProjectIds = [], favoriteIssueIds = [], favoriteActivities = []]: [number[], number[], number[]] = favorites ?? [];
-
-    const sort = <T extends { id: number }>(list: T[], favoriteIds: number[]): Array<T & { favorite: boolean }> => {
+    const sort = <T extends { id: number }>(list: T[], favoriteIds: number[] = []): Array<T & { favorite: boolean }> => {
         const [favorites, rest] = list.reduce(([favorites, rest], item) => favoriteIds.includes(item.id) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
         return [...favorites.map(item => ({ ...item, favorite: true })), ...rest];
     };
-    const projects = useMemo(() => sort(rawProjects, favoriteProjectIds), [rawProjects, favoriteProjectIds]);
-    const issues = useMemo(() => sort(project ? rawIssues.filter(issue => issue.project.id === project.id) : rawIssues, favoriteIssueIds), [rawIssues, favoriteIssueIds, project]);
-    const activities = useMemo(() => sort(rawActivities, favoriteActivities), [rawActivities, favoriteActivities]);
+    const projects = useMemo(() => sort(lists.projects, favorites?.projects), [lists.projects, favorites?.projects]);
+    const issues = useMemo(() => sort(project ? lists.issues.filter(issue => issue.project.id === project.id) : lists.issues, favorites?.issues), [project, lists.issues, favorites?.issues]);
+    const activities = useMemo(() => sort(lists.activities, favorites?.activities), [lists.activities, favorites?.activities]);
 
     const propsProject = {
         placeholder: 'Project', value: project, values: projects,
@@ -30,10 +42,9 @@ export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive
         linkify: (project: Project) => `${baseUrl}/projects/${project.id}`,
         filter: (filter: RegExp) => (project: Project) => filter.test(project.name),
         onChange: (project: Project) => setEntry(entry => ({ ...entry, project, issue: undefined })),
-        onFavorite: (project: Project & { favorite: boolean }) => onChangeFavorites([
-            project.favorite ? favoriteProjectIds.filter(id => id !== project.id) : favoriteProjectIds.concat(project.id),
-            favoriteIssueIds, favoriteActivities
-        ])
+        onFavorite: (project: Project & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, projects: project.favorite ? (favorites?.projects || []).filter(id => id !== project.id) : (favorites?.projects || []).concat(project.id)
+        })
     };
     const propsIssue = {
         placeholder: 'Issue', value: issue, values: issues,
@@ -45,31 +56,26 @@ export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive
         filter: hideInactive?.issues ?
             (filter: RegExp) => (issue: Issue) => !issue.closed_on && (filter.test(issue.subject) || filter.test(String(issue.id))) :
             (filter: RegExp) => (issue: Issue) => filter.test(issue.subject) || filter.test(String(issue.id)),
-        onEdit: (value: string, issue: Issue) => console.log({ value, issue }),
-        onChange: (issue: Issue) => setEntry(entry => ({ ...entry, issue, project: issue?.project })),
-        onFavorite: (issue: Issue & { favorite: boolean }) => onChangeFavorites([
-            favoriteProjectIds,
-            issue.favorite ? favoriteIssueIds.filter(id => id !== issue.id) : favoriteIssueIds.concat(issue.id),
-            favoriteActivities
-        ]),
+        onEdit: (subject: string, issue: Issue) => onEditIssue(issue || { subject, project }),
+        onChange: (issue: Issue) => setEntry(entry => ({ ...entry, issue, project: issue?.project && projects.find(project => project.id === issue.project.id) })),
+        onFavorite: (issue: Issue & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, issues: issue.favorite ? (favorites?.issues || []).filter(id => id !== issue.id) : (favorites?.issues || []).concat(issue.id)
+        }),
         onMount: (innerRefs: MutableRefObject<{ input: HTMLInputElement }>) => refs.current.issueSelect = innerRefs.current.input
     };
     const propsHours = {
         placeholder: 'Hours', value: hours || '', type: 'number', min: 0, max: 10, step: 0.25,
-        onChange: event => setEntry(entry => ({ ...entry, hours: Number(event.target.value) }))
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setEntry(entry => ({ ...entry, hours: Number(event.target.value) }))
     };
     const propsActivity = {
         placeholder: 'Activity', value: activity, values: activities,
-        render: (activity: Activity) => <div>{activity.active === false ? <del>{activity.name}</del> : activity.name}</div>,
+        render: (activity: Activity) => <div>{activity.name}</div>,
         stringlify: (activity: Activity) => String(activity.id),
-        filter: hideInactive?.activities ?
-            (filter: RegExp) => (activity: Activity) => activity.active && filter.test(activity.name) :
-            (filter: RegExp) => (activity: Activity) => filter.test(activity.name),
+        filter: (filter: RegExp) => (activity: Activity) => filter.test(activity.name),
         onChange: (activity: Activity) => setEntry(entry => ({ ...entry, activity })),
-        onFavorite: (activity: Activity & { favorite: boolean }) => onChangeFavorites([
-            favoriteProjectIds, favoriteIssueIds,
-            activity.favorite ? favoriteActivities.filter(id => id !== activity.id) : favoriteActivities.concat(activity.id)
-        ]),
+        onFavorite: (activity: Activity & { favorite: boolean }) => onChangeFavorites({
+            ...favorites, activities: activity.favorite ? (favorites?.activities || []).filter(id => id !== activity.id) : (favorites?.activities || []).concat(activity.id)
+        })
     };
     const propsComments = {
         placeholder: 'Comments', value: comments || '',
@@ -84,19 +90,19 @@ export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive
     };
     const propsDuplicate = {
         title: 'Duplicate', onClick: () => onDuplicate({ project, issue, hours, activity, comments, spent_on })
-    }
-    const propsClose = {
-        title: 'Close', onClick: () => onDismiss()
-    }
+    };
     const propsDelete = {
         title: 'Delete', onClick: () => onDelete({ id })
-    }
+    };
+    const propsClose = {
+        title: 'Close', onClick: () => onDismiss()
+    };
 
     useEffect(() => setEntry(init), [init]);
     useEffect(() => startTransition(() => entry ?
         window.localStorage.setItem('draft-entry', JSON.stringify(entry)) :
         window.localStorage.removeItem('draft-entry')), [entry]);
-    return <Dialog show={init} title={id ? 'Edit time entry' : 'New time entry'}>
+    return <Dialog show={init} title={id ? `#${id} time entry` : `New time entry`}>
         <div>
             <label title={'Project'}><FiPackage /></label>
             <Select {...propsProject} />
