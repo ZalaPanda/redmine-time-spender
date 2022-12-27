@@ -1,9 +1,10 @@
-import { useMemo, MouseEvent } from 'react';
+import { useMemo, MouseEvent, HTMLAttributes } from 'react';
 import { css, Theme } from '@emotion/react';
 import { margin, padding } from 'polished';
 import { FiEdit } from 'react-icons/fi';
 import { Collapsible } from './atoms/Collapsible';
 import dayjs from 'dayjs';
+import { EntryExt } from './apis/redmine';
 
 const dayStyles = css({
     display: 'flex', alignItems: 'center',
@@ -48,7 +49,14 @@ const ellapsedStyles = (theme: Theme) => css({ backgroundColor: theme.danger, ..
 const spentStyles = (theme: Theme) => css({ backgroundColor: theme.success, borderWidth: 1, borderStyle: 'solid', borderColor: theme.card.border, boxSizing: 'border-box' });
 const noteStyles = css({ margin: 4 });
 
-const Entry = ({ project, issue, activity, hours, sumHours, comments, baseUrl, disabled, onSelect }) => {
+interface DayEntryProps extends EntryExt {
+    sumHours: number,
+    baseUrl: string,
+    disabled: boolean,
+    onSelect: () => void
+};
+
+const DayEntry = ({ project, issue, activity, hours, sumHours, comments, baseUrl, disabled, onSelect }: DayEntryProps) => {
     const url = issue && `${baseUrl}/issues/${issue.id}`;
     const propsGrayCircle = ({
         cx: 25, cy: 25, r: 20, strokeWidth: 6, fill: 'none'
@@ -81,7 +89,17 @@ const Entry = ({ project, issue, activity, hours, sumHours, comments, baseUrl, d
     </div>
 };
 
-export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, onSelectEntry }) => {
+interface DayProps extends HTMLAttributes<HTMLDivElement> {
+    day: string,
+    entries: EntryExt[],
+    workHours: number[],
+    baseUrl: string,
+    selected: boolean,
+    onSelectDay: () => void,
+    onSelectEntry: (entry: EntryExt) => () => void
+};
+
+export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, onSelectEntry }: DayProps) => {
     const [start, end] = workHours || [8, 16];
     const sumHours = end - start;
     const title = useMemo(() => dayjs(day).format('dddd'), [day]); // Day of Week
@@ -104,7 +122,7 @@ export const Day = ({ day, entries, workHours, baseUrl, selected, onSelectDay, o
             </div>
         </div>
         <Collapsible open={selected}>
-            {entries.map(entry => <Entry key={entry.id} {...entry} baseUrl={baseUrl} sumHours={sumHours} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
+            {entries.map(entry => <DayEntry key={entry.id} {...entry} baseUrl={baseUrl} sumHours={sumHours} disabled={!selected} onSelect={onSelectEntry(entry)} />)}
             {!entries.length && <small css={noteStyles}>No time entries</small>}
         </Collapsible>
     </>
