@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo, useRef, ChangeEvent, KeyboardEvent, MouseEvent, FC, ReactElement, MutableRefObject } from 'react';
+import { useState, useEffect, useMemo, useRef, ChangeEvent, KeyboardEvent, MouseEvent, MutableRefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { css, Theme } from '@emotion/react';
 import { padding } from 'polished';
 import { useGesture } from '@use-gesture/react';
 import { FiChevronDown, FiChevronsDown, FiEdit, FiExternalLink, FiStar, FiX } from 'react-icons/fi';
+import { useListen } from '../apis/uses';
 
-const selectStyles = (theme: Theme) => css({
+const selectStyles = css({
     display: 'inline-block', position: 'relative',
     '&>input': { width: '100%', margin: 1, padding: 4, boxSizing: 'border-box' },
     '&>label': {
@@ -14,21 +16,22 @@ const selectStyles = (theme: Theme) => css({
         '&>svg': { flexShrink: 0, pointerEvents: 'auto' },
         '&>a': { display: 'none', pointerEvents: 'auto' }
     },
-    '&:hover>label>a': { display: 'unset' },
-    '&>div': {
-        position: 'absolute', zIndex: 1,
-        width: '100%', maxHeight: 200, padding: 0, margin: 0, boxSizing: 'border-box',
-        overflowY: 'auto', borderWidth: 1, borderStyle: 'solid', borderColor: theme.border, boxShadow: `0 3px 9px ${theme.shadow}`,
-        color: theme.text, backgroundColor: theme.select.bg,
-        '&>div': { ...padding(4, 6), cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap' },
-        '&>div[active]': { border: 0, borderLeft: 4, borderStyle: 'solid', borderColor: theme.select.tape, backgroundColor: theme.mark },
-        '&>div:hover>a': { display: 'block' },
-        '&>div>a': {
-            float: 'right', color: theme.muted, display: 'none',
-            '&[active]': { color: theme.text, display: 'block' },
-        },
-        '&>small': { ...padding(0, 6), color: theme.muted }
-    }
+    '&:hover>label>a': { display: 'unset' }
+});
+
+const listStyles = (theme: Theme) => css({
+    position: 'fixed', zIndex: 1,
+    width: '100%', maxHeight: 200, padding: 0, margin: 0, boxSizing: 'border-box',
+    overflowY: 'auto', borderWidth: 1, borderStyle: 'solid', borderColor: theme.border, boxShadow: `0 3px 9px ${theme.shadow}`,
+    color: theme.text, backgroundColor: theme.select.bg,
+    '&>div': { ...padding(4, 6), cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap' },
+    '&>div[active]': { border: 0, borderLeft: 4, borderStyle: 'solid', borderColor: theme.select.tape, backgroundColor: theme.mark },
+    '&>div:hover>a': { display: 'block' },
+    '&>div>a': {
+        float: 'right', color: theme.muted, display: 'none',
+        '&[active]': { color: theme.text, display: 'block' },
+    },
+    '&>small': { ...padding(0, 6), color: theme.muted }
 });
 
 const step = 20;
@@ -47,6 +50,8 @@ interface SelectProps<T> {
     onFavorite?: (value: T) => void,
     onMount?: (refs: MutableRefObject<{ input: HTMLInputElement, list: HTMLDivElement }>) => void
 };
+
+const BodyPortal = ({ children }) => createPortal(children, document.body);
 
 export const Select = <T extends {}>({
     value: current, values, placeholder,
@@ -133,6 +138,12 @@ export const Select = <T extends {}>({
     });
     const propsList = ({
         ref: (ref: HTMLDivElement) => refs.current.list = ref,
+        css: listStyles,
+        style: useMemo(() => {
+            if (!search?.active) return undefined;
+            const { bottom, left, width } = refs.current.input?.getBoundingClientRect() || {} as DOMRect;
+            return { top: bottom, left, width };
+        }, [search.active]),
         ...useGesture({
             onScrollEnd: ({ event }) => {
                 const { target } = event;
@@ -170,6 +181,7 @@ export const Select = <T extends {}>({
         }
     });
 
+    useListen('hide-select', () => setSearch(search => ({ ...search, active: false }))); // nasty spaghetti code
     useEffect(() => { // scroll to selected option
         const element = refs.current.list?.children[search.index];
         element && element.scrollIntoView({ block: 'nearest' });
@@ -186,14 +198,16 @@ export const Select = <T extends {}>({
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
         <input {...propsInput} />
-        {search.active && <div {...propsList}>
-            {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>
-                {!!onFavorite && <a {...propsFavorite(value)}><FiStar /></a>}
-                {!!onEdit && <a {...propsEdit(value)}><FiEdit /></a>}
-                {!!linkify && <a {...propsLink(value)}><FiExternalLink /></a>}
-                {render(value)}
-            </div>)}
-            {!filtered.length && <small>No more options</small>}
-        </div>}
+        <BodyPortal>
+            {search.active && <div {...propsList}>
+                {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>
+                    {!!onFavorite && <a {...propsFavorite(value)}><FiStar /></a>}
+                    {!!onEdit && <a {...propsEdit(value)}><FiEdit /></a>}
+                    {!!linkify && <a {...propsLink(value)}><FiExternalLink /></a>}
+                    {render(value)}
+                </div>)}
+                {!filtered.length && <small>No more options</small>}
+            </div>}
+        </BodyPortal>
     </div>;
 };
