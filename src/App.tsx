@@ -132,15 +132,15 @@ export const App = () => {
     const [database, setDatabase] = useState<Database>(); // IndexedDb API
 
     const [tasks, setTasks] = useState<Task[]>([]); // todo list items
-    const [entries, setEntries] = useState<EntryExt[]>([]); // Redmine time entries
     const [lists, setLists] = useState<Lists>({ projects: [], issues: [], activities: [], priorities: [], statuses: [] }); // other Redmine types
+    const [entries, setEntries] = useState<EntryExt[]>([]); // Redmine time entries
 
     const days = [...Array(settings?.numberOfDays)].map((_, day) => dayjs().subtract(day, 'day').format('YYYY-MM-DD'));
     const [search, setSearch] = useState<string | undefined>();
     const searching = search !== undefined;
     const [today, setToday] = useState(days[0]);
     const [entry, setEntry] = useState<Partial<EntryExt> | undefined>(JSON.parse(window.localStorage.getItem('draft-entry'))); // saved in EditEntry in a useEffect
-    const [issue, setIssue] = useState<Partial<IssueExt> | undefined>(); // saved in EditIssue in a useEffect
+    const [issue, setIssue] = useState<Partial<IssueExt> | undefined>(JSON.parse(window.localStorage.getItem('draft-issue'))); // saved in EditIssue in a useEffect
 
     const filteredTasks = useMemo(() => {
         const exp = searching && RegExp((search || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
@@ -231,7 +231,7 @@ export const App = () => {
     const propsAddIssueButton = ({
         ref: (ref: HTMLButtonElement) => refs.current.addIssueButton = ref,
         title: 'Add issue',
-        onClick: () => setIssue({})
+        onClick: () => setIssue({ assigned_to: { id: 0, name: 'me' }, start_date: today })
     });
 
     const propsAddEntryButton = ({
@@ -387,9 +387,9 @@ export const App = () => {
                     setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, project, issue, activity } : entry));
                 } else { // create
                     const response = await redmine.createEntry(entry);
-                    const { time_entry: created } = await response.json();
-                    await database.table('entries').put(created);
-                    setEntries(entries => [{ ...created, issue }, ...entries]);
+                    const { time_entry: { id, project, activity, hours, comments, spent_on, created_on, updated_on } } = await response.json();
+                    await database.table('entries').put({ id, project, activity, hours, comments, spent_on, created_on, updated_on });
+                    setEntries(entries => [{ id, project, issue, activity, hours, comments, spent_on, created_on, updated_on }, ...entries]);
                 }
                 setEntry(undefined);
                 refs.current.addEntryButton.focus();
@@ -409,18 +409,17 @@ export const App = () => {
                 raiseError(error);
             }
         },
-        onDuplicate: (entry: Partial<EntryExt>) => setEntry(entry),
+        onDuplicate: ({ id, ...entry }: Partial<EntryExt>) => setEntry(entry),
         onEditIssue: async (issue: Partial<Issue>) => {
             try {
                 const { id } = issue;
                 if (id) {
                     const issue = await redmine.getIssueById(id);
                     const project = issue.project && await database.table('projects').get({ id: issue.project.id });
-                    console.log(issue.project.id, project, issue);
                     setIssue({ ...issue, project });
                 } else {
                     const project = issue.project && await database.table('projects').get({ id: issue.project.id });
-                    setIssue({ ...issue, project });
+                    setIssue({ assigned_to: { id: 0, name: 'me' }, start_date: today, ...issue, project });
                 }
             } catch (error) {
                 raiseError(error);
@@ -442,42 +441,29 @@ export const App = () => {
 
     const propsEditIssue = ({
         show: !!issue, issue, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive,
-        onSubmit: async (issue: Partial<Issue>) => {
-            // try {
-            //     const { id, project, issue, hours, activity, comments, spent_on } = entry;
-            //     if (id) { // update
-            //         await redmine.updateEntry(entry); // 204 No Content: time entry was updated
-            //         const update = { // NOTE: `updated_on` not updated
-            //             ...project && { project: { id: project.id, name: project.name } },
-            //             ...issue && { issue: { id: issue.id } },
-            //             ...activity && { activity: { id: activity.id, name: activity.name } },
-            //             hours, comments, spent_on
-            //         };
-            //         await database.table('entries').update(id, update);
-            //         setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, issue } : entry));
-            //     } else { // create
-            //         const response = await redmine.createEntry(entry);
-            //         const { time_entry: created } = await response.json();
-            //         await database.table('entries').put(created);
-            //         setEntries(entries => [{ ...created, issue }, ...entries]);
-            //     }
-            //     setEntry(undefined);
-            //     refs.current.addEntryButton.focus();
-            // } catch (error) {
-            //     raiseError(error);
-            // }
-        },
-        onDelete: async (issue: Partial<Issue>) => {
-            // try {
-            //     const { id } = entry;
-            //     await redmine.deleteEntry(entry);
-            //     await database.table('entries').delete(id);
-            //     setEntries(entries => entries.filter(entry => entry.id !== id));
-            //     setEntry(undefined);
-            //     refs.current.addEntryButton.focus();
-            // } catch (error) {
-            //     raiseError(error);
-            // }
+        onSubmit: async (issue: Partial<IssueExt>) => {
+            try {
+                const { id, project, status, subject, description } = issue;
+                if (id) { // update
+                    await redmine.updateIssue(issue); // 204 No Content: issue was updated
+                    const update = { // NOTE: `updated_on` + `closed_on` not updated
+                        ...project && { project: { id: project.id, name: project.name } },
+                        ...status?.is_closed && { closed_on: '?' },
+                        subject, description
+                    };
+                    await database.table('issues').update(id, update);
+                    setLists(lists => ({ ...lists, issues: lists.issues.map(issue => issue.id === id ? { ...issue, ...update } : issue) }));
+                } else { // create
+                    const response = await redmine.createIssue(issue);
+                    const { issue: { id, project, subject, description, created_on, updated_on, closed_on } } = await response.json();
+                    await database.table('issues').put({ id, project, subject, description, created_on, updated_on, closed_on });
+                    setLists(lists => ({ ...lists, issues: [{ id, project, subject, description, created_on, updated_on, closed_on }, ...lists.issues] }));
+                }
+                setIssue(undefined);
+                refs.current.addIssueButton.focus();
+            } catch (error) {
+                raiseError(error);
+            }
         },
         onChangeFavorites: async (favorites: Favorites) => {
             try {

@@ -1,31 +1,89 @@
+import { useSpring, animated, config } from '@react-spring/web';
+import { css, Theme } from '@emotion/react';
+import { margin } from 'polished';
 import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject } from 'react';
-import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiMinimize2, FiMaximize2, FiTrash2, FiMessageSquare, FiSmile } from 'react-icons/fi';
-import { Activity, Category, Entry, Issue, IssueExt, Priority, Project, Status, Tracker } from './apis/redmine';
+import { FiHash, FiPackage, FiX, FiCheck, FiMessageSquare, FiCalendar, FiChevronsRight, FiBookmark, FiInfo, FiTrendingUp, FiMenu } from 'react-icons/fi';
+import { Category, CustomField, Issue, IssueExt, Priority, Project, Status, Tracker } from './apis/redmine';
 import { Favorites, Lists } from './App';
 import { Checkbox } from './atoms/Checkbox';
 import { Select } from './atoms/Select';
 import { Textarea } from './atoms/Textarea';
 import { Dialog } from './Dialog';
+import { useHover } from '@use-gesture/react';
+import { useRaise } from './apis/uses';
 
 interface EditEntryProps {
     issue: Partial<IssueExt>,
     lists: Lists,
     favorites: Favorites,
     baseUrl?: string,
-    hideInactive?: { issues: boolean, activities: boolean },
+    hideInactive?: { priorities: boolean },
     onSubmit: (entry: Partial<Issue>) => void,
-    onDelete: (entry: Partial<Issue>) => void
     onChangeFavorites: (favorites: Favorites) => void,
     onDismiss: () => void,
 };
 
-export const EditIssue = ({ issue: init, lists, favorites, baseUrl, onSubmit, onDelete, onChangeFavorites, onDismiss }: EditEntryProps) => {
+const fieldsStyles = (theme: Theme) => css({
+    '&>div': {
+        display: 'flex', alignItems: 'center', padding: 2,
+        '&>label': { color: theme.field.text }, // label with svg icon
+        '&>div': { flexGrow: 1 }, // project, issue, activity
+        '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
+    },
+    '&>div:focus-within': {
+        '&>label': { color: theme.field.focus }, // label with svg icon
+    },
+    '&>hr': { ...margin(0, 10, 0, 30), border: 0, borderBottom: 1, borderStyle: 'solid', borderColor: theme.border }
+});
+
+const pagerContainerStyles = css({
+    whiteSpace: 'nowrap', overflowX: 'clip',
+    '&>div': { display: 'inline-block', width: '100%', verticalAlign: 'top' }
+});
+
+const pagerCircleStyles = (theme: Theme) => css({
+    display: 'flex', justifyContent: 'center', height: 6,
+    '&>svg': { fill: theme.button.hover, cursor: 'pointer' },
+    '&>svg[active]': { fill: theme.button.active }
+});
+
+const numericInputStyles = (theme: Theme) => css({
+    width: 60,
+    // borderRadius: 4, // TODO: ???
+    // '&[success]': { backgroundColor: theme.success },
+    // '&[danger]': { backgroundColor: theme.danger }
+});
+
+export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive, onSubmit, onChangeFavorites, onDismiss }: EditEntryProps) => {
     const refs = useRef({
         projectSelect: undefined as HTMLInputElement,
         subjectInput: undefined as HTMLInputElement
     });
+
+    const raiseHideSelect = useRaise('hide-select'); // NOTE: check Select.tsx:184
+    const [visiblePage, setVisiblePage] = useState(0);
+    const [{ x }, setSpring] = useSpring(() => ({ x: `0%`, immediate: true, config: config.stiff }), []);
+
+    const pagerContainerProps = {
+        css: pagerContainerStyles
+    };
+    const pagerPageProps = (page: number) => ({
+        onFocus: () => setVisiblePage(page),
+        css: fieldsStyles,
+        style: { x }
+    });
+    const pagerDotProps = (page: number) => ({
+        width: 6, height: 6, active: page === visiblePage ? 'true' : null,
+        ...useHover(({ hovering, args: [page] }) => hovering && setVisiblePage(page), {})(page)
+    });
+
+    useEffect(() => {
+        raiseHideSelect();
+        setSpring.start({ x: `${-100 * visiblePage}%` })
+    }, [visiblePage]);
+
     const [issue, setIssue] = useState<Partial<IssueExt>>();
-    const { id, project, tracker, status, allowed_statuses, priority, subject, description, category, is_private, estimated_hours, done_ratio, start_date, due_date } = issue || {} as IssueExt;
+    const { id, project, tracker, status, allowed_statuses, priority, subject, description, category, is_private, assigned_to, custom_fields, spent_hours, estimated_hours, done_ratio, start_date, due_date } = issue || {} as IssueExt;
 
     const sort = <T extends { id: number }>(list: T[], favoriteIds: number[] = []): Array<T & { favorite: boolean }> => {
         const [favorites, rest] = list.reduce(([favorites, rest], item) => favoriteIds.includes(item.id) ? [[...favorites, item], rest] : [favorites, [...rest, item]], [[], []]);
@@ -37,18 +95,34 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, onSubmit, on
     const priorities = useMemo(() => sort(lists.priorities, favorites?.priorities), [lists.priorities, favorites?.priorities]);
     const statuses = useMemo(() => sort(allowed_statuses || lists.statuses, favorites?.statuses), [allowed_statuses, lists.statuses, favorites?.statuses]);
 
+    const dialogProps = {
+        show: init,
+        title: id ? `#${id} issue` : `New issue`,
+        onShow: () => id ? refs.current.subjectInput.focus() : refs.current.projectSelect.focus()
+    };
     const propsProject = {
         placeholder: 'Project', value: project, values: projects, style: { width: 360 },
         render: (project: Project) => <div title={project.description}>{project.name}</div>,
         stringlify: (project: Project) => String(project.id),
         linkify: (project: Project) => `${baseUrl}/projects/${project.id}`,
         filter: (filter: RegExp) => (project: Project) => filter.test(project.name),
-        onChange: (project: Project) => setIssue(issue => ({ ...issue, project })),
+        onChange: (project: Project) => setIssue(issue => ({
+            ...issue, project, custom_fields: project?.issue_custom_fields?.length ?
+                project.issue_custom_fields.map(({ id, name }) => custom_fields?.find(field => field.id === id) || { id, name, value: undefined }) : []
+        })),
         onFavorite: (project: Project & { favorite: boolean }) => onChangeFavorites({
             ...favorites, projects: project.favorite ? (favorites?.projects || []).filter(id => id !== project.id) : (favorites?.projects || []).concat(project.id)
-        })
+        }),
+        onMount: (innerRefs: MutableRefObject<{ input: HTMLInputElement }>) => refs.current.projectSelect = innerRefs.current.input
     };
-
+    const propsIsPrivate = {
+        checked: is_private,
+        onChange: (is_private: boolean) => setIssue(issue => ({ ...issue, is_private }))
+    };
+    const propsAssignToMe = {
+        checked: assigned_to?.name === 'me',
+        onChange: (me: boolean) => setIssue(issue => ({ ...issue, assigned_to: me ? { id: 0, name: 'me' } : undefined }))
+    };
     const propsTracker = {
         placeholder: 'Tracker', value: tracker, values: trackers,
         render: (tracker: Tracker) => <div>{tracker.name}</div>,
@@ -59,7 +133,6 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, onSubmit, on
             ...favorites, trackers: tracker.favorite ? (favorites?.trackers || []).filter(id => id !== tracker.id) : (favorites?.trackers || []).concat(tracker.id)
         })
     };
-
     const propsCategory = {
         placeholder: 'Category', value: category, values: categories,
         render: (category: Category) => <div>{category.name}</div>,
@@ -70,21 +143,21 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, onSubmit, on
             ...favorites, categories: category.favorite ? (favorites?.categories || []).filter(id => id !== category.id) : (favorites?.categories || []).concat(category.id)
         })
     };
-
     const propsPriority = {
         placeholder: 'Priority', value: priority, values: priorities,
         render: (priority: Priority) => <div>{priority.name}</div>,
         stringlify: (priority: Priority) => String(priority.id),
-        filter: (filter: RegExp) => (priority: Priority) => filter.test(priority.name),
+        filter: hideInactive?.priorities ?
+            (filter: RegExp) => (priority: Priority) => priority.active && filter.test(priority.name) :
+            (filter: RegExp) => (priority: Priority) => filter.test(priority.name),
         onChange: (priority: Priority) => setIssue(issue => ({ ...issue, priority })),
         onFavorite: (priority: Priority & { favorite: boolean }) => onChangeFavorites({
             ...favorites, priorities: priority.favorite ? (favorites?.priorities || []).filter(id => id !== priority.id) : (favorites?.priorities || []).concat(priority.id)
         })
     };
-
     const propsStatus = {
         placeholder: 'Status', value: status, values: statuses,
-        render: (status: Status) => <div>{status.name}</div>,
+        render: (status: Status) => status.is_closed ? <del>{status.name}</del> : <div>{status.name}</div>,
         stringlify: (status: Status) => String(status.id),
         filter: (filter: RegExp) => (status: Status) => filter.test(status.name),
         onChange: (status: Status) => setIssue(issue => ({ ...issue, status })),
@@ -92,59 +165,14 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, onSubmit, on
             ...favorites, priorities: status.favorite ? (favorites?.statuses || []).filter(id => id !== status.id) : (favorites?.statuses || []).concat(status.id)
         })
     };
-
-    // const propsIssue = {
-    //     placeholder: 'Issue', value: issue, values: issues,
-    //     render: (issue: Issue, short: boolean) => short ?
-    //         <div>#{issue.id} {issue.closed_on ? <del>{issue.subject}</del> : issue.subject}</div> :
-    //         <div title={issue.description}>#{issue.id} {issue.project.name}<br />{issue.closed_on ? <del>{issue.subject}</del> : issue.subject}</div>,
-    //     stringlify: (issue: Issue) => String(issue.id),
-    //     linkify: (issue: Issue) => `${baseUrl}/issues/${issue.id}`,
-    //     filter: hideInactive?.issues ?
-    //         (filter: RegExp) => (issue: Issue) => !issue.closed_on && (filter.test(issue.subject) || filter.test(String(issue.id))) :
-    //         (filter: RegExp) => (issue: Issue) => filter.test(issue.subject) || filter.test(String(issue.id)),
-    //     onEdit: (value: string, issue: Issue) => console.log({ value, issue }),
-    //     onChange: (issue: Issue) => setEntry(entry => ({ ...entry, issue, project: issue?.project })),
-    //     onFavorite: (issue: Issue & { favorite: boolean }) => onChangeFavorites([
-    //         favoriteProjectIds,
-    //         issue.favorite ? favoriteIssueIds.filter(id => id !== issue.id) : favoriteIssueIds.concat(issue.id),
-    //         favoriteActivities
-    //     ]),
-    //     onMount: (innerRefs: MutableRefObject<{ input: HTMLInputElement }>) => refs.current.issueSelect = innerRefs.current.input
-    // };
-    // const propsHours = {
-    //     placeholder: 'Hours', value: hours || '', type: 'number', min: 0, max: 10, step: 0.25,
-    //     onChange: event => setEntry(entry => ({ ...entry, hours: Number(event.target.value) }))
-    // };
-    // const propsActivity = {
-    //     placeholder: 'Activity', value: activity, values: activities,
-    //     render: (activity: Activity) => <div>{activity.active === false ? <del>{activity.name}</del> : activity.name}</div>,
-    //     stringlify: (activity: Activity) => String(activity.id),
-    //     filter: hideInactive?.activities ?
-    //         (filter: RegExp) => (activity: Activity) => activity.active && filter.test(activity.name) :
-    //         (filter: RegExp) => (activity: Activity) => filter.test(activity.name),
-    //     onChange: (activity: Activity) => setEntry(entry => ({ ...entry, activity })),
-    //     onFavorite: (activity: Activity & { favorite: boolean }) => onChangeFavorites([
-    //         favoriteProjectIds, favoriteIssueIds,
-    //         activity.favorite ? favoriteActivities.filter(id => id !== activity.id) : favoriteActivities.concat(activity.id)
-    //     ]),
-    // };
     const propsSubject = {
         placeholder: 'Subject', value: subject || '',
-        onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({ ...issue, subject: event.target.value }))
+        ref: (ref: HTMLInputElement) => refs.current.subjectInput = ref,
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, subject: event.target.value }))
     };
     const propsDescription = {
         placeholder: 'Description', value: description || '',
         onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({ ...issue, description: event.target.value }))
-    };
-
-    const propsEstimatedHours = {
-        placeholder: 'Estimated', value: estimated_hours || '', type: 'number', min: 0, step: 0.25, css: { width: 80 },
-        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, estimated_hours: Number(event.target.value) }))
-    };
-    const propsDoneRatio = {
-        placeholder: 'Done%', value: done_ratio || '', type: 'number', min: 0, max: 100, step: 10, css: { width: 80 },
-        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, done_ratio: Number(event.target.value) }))
     };
     const propsStartDate = {
         title: 'Start date', type: 'date', value: start_date || '',
@@ -154,56 +182,97 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, onSubmit, on
         title: 'Due date', type: 'date', value: due_date || '',
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, due_date: event.target.value }))
     };
+    const propsCustomField = ({ id, name, value, multiple }: CustomField) => ({
+        placeholder: name, value: multiple && Array.isArray(value) ? value.join('\r\n') : String(value || ''),
+        onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({
+            ...issue, custom_fields: issue.custom_fields.map(custom_field => custom_field.id === id ?
+                ({ ...custom_field, value: custom_field.multiple ? event.target.value.split('\r\n') : event.target.value }) : custom_field)
+        }))
+    });
+    const propsEstimatedHours = {
+        placeholder: 'Hours', value: estimated_hours || '', type: 'number', min: 0, step: 0.25, css: numericInputStyles,
+        title: spent_hours ? `Spent hours: ${spent_hours}` : 'Estimated Hours', // danger: spent_hours > estimated_hours ? '' : null,
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, estimated_hours: Number(event.target.value) }))
+    };
+    const propsDoneRatio = {
+        placeholder: '%', value: done_ratio || '', type: 'number', min: 0, max: 100, step: 10, css: numericInputStyles,
+        title: '% Done', // success: done_ratio === 100 ? '' : null,
+        onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, done_ratio: Number(event.target.value) }))
+    };
 
     const propsSubmit = {
-        title: 'Submit', onClick: () => onSubmit({}) // TODO: !!!
+        title: 'Submit', onClick: () => onSubmit(issue)
     };
     const propsClose = {
         title: 'Close', onClick: () => onDismiss()
-    };
-    const propsDelete = {
-        title: 'Delete', onClick: () => onDelete({ id })
     };
 
     useEffect(() => setIssue(init), [init]);
     useEffect(() => startTransition(() => issue ?
         window.localStorage.setItem('draft-issue', JSON.stringify(issue)) :
         window.localStorage.removeItem('draft-issue')), [issue]);
-    return <Dialog show={init} title={id ? `#${id} issue` : `New issue`}>
-        <div>
-            <label title={'Project'}><FiPackage /></label>
-            <Select {...propsProject} />
-            <Select {...propsTracker} />
+    return <Dialog {...dialogProps}>
+        <div {...pagerContainerProps}>
+            <animated.div {...pagerPageProps(0)}>
+                <div>
+                    <label title={'Project'}><FiPackage /></label>
+                    <Select {...propsProject} />
+                    <Checkbox {...propsIsPrivate}>Private</Checkbox>
+                </div>
+                <hr />
+                <div>
+                    <label title={'Tracker/Priority/Status'}><FiMenu /></label>
+                    <Select {...propsTracker} />
+                    <Select {...propsPriority} />
+                    <Select {...propsStatus} />
+                </div>
+                <hr />
+                <div>
+                    <label title={'Subject'}><FiHash /></label>
+                    <input {...propsSubject} />
+                </div>
+                <hr />
+                <div>
+                    <label title={'Description'}><FiMessageSquare /></label>
+                    <Textarea {...propsDescription} />
+                </div>
+            </animated.div>
+            <animated.div {...pagerPageProps(1)}>
+                <div>
+                    <label title={'Start date'}><FiCalendar /></label>
+                    <input {...propsStartDate} />
+                    <label title={'Due date'}><FiChevronsRight /></label>
+                    <input {...propsDueDate} />
+                </div>
+                <hr />
+                {categories?.length ? <><div>
+                    <label title={'Category'}><FiBookmark /></label>
+                    <Select {...propsCategory} />
+                </div><hr /></> : null}
+                {custom_fields?.length ? custom_fields.map(({ id, name, value, multiple }) => <div key={id}>
+                    <label title={name}><FiInfo /></label>
+                    <Textarea {...propsCustomField({ id, name, value, multiple })} />
+                </div>) : null}
+            </animated.div>
         </div>
-        <hr />
-        <div>
-            <label title={'Subject'}><FiHash /></label>
-            <Textarea {...propsSubject} />
+        <div css={pagerCircleStyles}>
+            <svg {...pagerDotProps(0)}>
+                <circle cx={3} cy={3} r={3} />
+            </svg>
+            <svg {...pagerDotProps(1)}>
+                <circle cx={3} cy={3} r={3} />
+            </svg>
         </div>
-        <div>
-            <label title={'Description'}><FiMessageSquare /></label>
-            <Textarea {...propsDescription} />
-        </div>
-        <hr />
-        <div>
-            <label title={'Category'}><FiHash /></label>
-            <Select {...propsStatus} />
-            <Select {...propsPriority} />
-            <Select {...propsCategory} />
-        </div>
-        <hr />
-        <div>
-            <label title={'Dates'}><FiClock /></label>
-            <input {...propsStartDate} />
-            <input {...propsDueDate} />
-            {/* <input {...propsEstimatedHours} /> */}
-            {/* <input {...propsDoneRatio} /> */}
-        </div>
-        <div>
-            <button {...propsSubmit}><FiCheck /></button>
-            <button {...propsClose}><FiX /></button>
-            <Checkbox checked={false}>Assign to me</Checkbox>
-            {id && <button {...propsDelete}><FiTrash2 /></button>}
+        <div css={fieldsStyles}>
+            <div>
+                <button {...propsSubmit}><FiCheck /></button>
+                <button {...propsClose}><FiX /></button>
+                {!id && <Checkbox {...propsAssignToMe}>Assign to me</Checkbox>}
+                <div />
+                <label title={'Estimate/Done'}><FiTrendingUp /></label>
+                <input {...propsEstimatedHours} />
+                <input {...propsDoneRatio} />
+            </div>
         </div>
     </Dialog>;
 };
