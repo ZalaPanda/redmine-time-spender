@@ -52,6 +52,7 @@ export type Project = {
     description: string,
     trackers: Reference[],
     issue_categories: Reference[],
+    issue_custom_fields: Reference[],
     created_on: string, // yyyy-MM-ddTHH:mm:ssZ
     updated_on: string // yyyy-MM-ddTHH:mm:ssZ
 };
@@ -74,12 +75,14 @@ export type IssueExt = Issue & {
     allowed_statuses?: Status[], // since 5.0.x
     priority: Reference,
     category: Category,
+    assigned_to: Reference,
     custom_fields: CustomField[],
     start_date: string, // yyyy-MM-dd
     due_date: string, // yyyy-MM-dd
     done_ratio: number,
     is_private: boolean,
-    estimated_hours?: number
+    estimated_hours?: number,
+    spent_hours: number
 };
 
 /** @see https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Listing-time-entries */
@@ -153,12 +156,12 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         raiseProgress('projects');
         const projects = [];
         while (true) {
-            const response = await fetchRedmine(`/projects.json?include=trackers,issue_categories,issue_custom_fields,time_entry_activities&limit=100&offset=${projects.length}`);
+            const response = await fetchRedmine(`/projects.json?include=trackers,issue_categories,issue_custom_fields&limit=100&offset=${projects.length}`);
             const { projects: chunk, total_count: total, offset, limit } = await response.json() as { projects: Project[], total_count: number, offset: number, limit: number };
             projects.push(...chunk.map(({
-                id, name, identifier, description, trackers, issue_categories, created_on, updated_on
+                id, name, identifier, description, trackers, issue_categories, issue_custom_fields, created_on, updated_on
             }) => ({
-                id, name, identifier, description, trackers, issue_categories, created_on, updated_on
+                id, name, identifier, description, trackers, issue_categories, issue_custom_fields, created_on, updated_on
             })));
             raiseProgress('projects', projects.length, total);
             if (total <= limit + offset) break;
@@ -207,11 +210,10 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         raiseProgress('statuses', statuses.length, statuses.length);
         return statuses.map(({ id, name, is_closed }) => ({ id, name, is_closed }));
     };
-    const getUser = async () => {
+    const getUser = async () => { // API: https://www.redmine.org/projects/redmine/wiki/Rest_MyAccount
         return await fetchRedmine('/my/account.json'); // {"user":{ "id":1, ... }}
     }
-    /** API https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry */
-    const createEntry = async (entry: Partial<EntryExt>) => {
+    const createEntry = async (entry: Partial<EntryExt>) => { // API https://www.redmine.org/projects/redmine/wiki/Rest_TimeEntries#Creating-a-time-entry
         const { project, issue, hours, activity, comments, spent_on } = entry;
         const body = JSON.stringify({
             time_entry: {
@@ -239,49 +241,38 @@ export const createRedmineApi = (baseUrl: string, apiKey: string): RedmineAPI =>
         const { id } = entry;
         return await fetchRedmine(`/time_entries/${id}.json`, 'DELETE');
     };
-
-    // mandatory: project, subject
-    // "assigned_to_id": "me" or blank
-
-    const createIssue = async (issue: Partial<IssueExt>) => {
-        const { project, tracker, status, priority, subject, description, category, custom_fields, is_private, estimated_hours } = issue;
+    const createIssue = async (issue: Partial<IssueExt>) => { // API: https://www.redmine.org/projects/redmine/wiki/Rest_Issues#Creating-an-issue
+        const { project, tracker, status, priority, subject, description, category, is_private, assigned_to, custom_fields, estimated_hours, done_ratio, start_date, due_date } = issue;
         const body = JSON.stringify({
             issue: {
-                project_id: project?.id || null,
-                tracker_id: tracker?.id || null,
-                status_id: status?.id || null,
-                priority_id: priority?.id || null,
-                subject,
-                description,
-                category_id: category?.id || null,
-                // assigned_to_id
-                custom_fields: custom_fields || null,
-                is_private: is_private || null,
-                estimated_hours: estimated_hours || null
+                ...project && { project_id: project.id },
+                ...tracker && { tracker_id: tracker.id },
+                ...status && { status_id: status.id },
+                ...priority && { priority_id: priority.id },
+                ...category && { category_id: category.id },
+                ...assigned_to?.name === 'me' && { assigned_to_id: 'me' },
+                ...custom_fields && { custom_fields },
+                subject, description, is_private: !!is_private, estimated_hours, done_ratio, start_date, due_date
             }
         });
         return await fetchRedmine(`/issues.json`, 'POST', body);
     };
     const updateIssue = async (issue: Partial<IssueExt>) => {
-        const { id, project, tracker, status, priority, subject, description, category, is_private, estimated_hours } = issue;
+        const { id, project, tracker, status, priority, subject, description, category, is_private, custom_fields, estimated_hours, done_ratio, start_date, due_date } = issue;
         const body = JSON.stringify({
             issue: {
                 project_id: project?.id || null,
                 tracker_id: tracker?.id || null,
                 status_id: status?.id || null,
                 priority_id: priority?.id || null,
-                subject,
-                description,
                 category_id: category?.id || null,
-                // assigned_to_id
-                // custom_fields: custom_fields || null,
-                is_private: is_private || false,
-                estimated_hours: estimated_hours || null
+                custom_fields: custom_fields || null,
+                subject, description, is_private: !!is_private, estimated_hours, done_ratio, start_date, due_date
             }
         });
         return await fetchRedmine(`/issues/${id}.json`, 'PUT', body);
     };
-    const deleteIssue = async (issue: Partial<IssueExt>) => {
+    const deleteIssue = async (issue: Partial<IssueExt>) => { // NOTE: not used!
         const { id } = issue;
         return await fetchRedmine(`/issues/${id}.json`, 'DELETE');
     };
