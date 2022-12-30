@@ -33,3 +33,11 @@ Future plans
 ------------
 * create issues in redmine - #4
 * maybe replace webpack with [esbuild](https://esbuild.github.io/)
+
+TODO
+----
+- [ ] fix Select focus/blur problem (reason: the portal)
+- [ ] replace `no more options` in *time entry* dialog *issue* field with `add new issue`
+- [ ] check icons in *time entry* dialog *issue* field
+- [ ] more testing with multiple custom fields
+- [ ] check both issue dates
