@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 
-export const useRaise = (type: string) => (detail: any) => window.dispatchEvent(new CustomEvent(type, { detail }));
+export const useRaise = (type: string) => (detail?: any) => window.dispatchEvent(new CustomEvent(type, { detail }));
 export const useListen = (type: string, callback: (detail: any) => void) => useEffect(() => {
     const listener = (event: CustomEvent) => callback(event.detail);
     window.addEventListener(type, listener);
