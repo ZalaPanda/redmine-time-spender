@@ -15,7 +15,7 @@ export const Bar = () => {
         onRest: {
             opacity: ({ value }) => value === 0 && setProgress(undefined) // reset progress on finish
         }
-    }));
+    }), []);
     useEffect(() => {
         const [count, total] = Object.values(progress ?? {}).reduce(
             ([sumCount, sumTotal], [count = 0, total = 100]) => ([sumCount + count, sumTotal + total]), [0, 0]);
