@@ -107,7 +107,8 @@ export const Select = <T extends {}>({
         onClick: () => setSearch(search => ({ ...search, active: !search.active })), // -> toggle list
         onChange: (event: ChangeEvent<HTMLInputElement>) => setSearch(search => ({ ...search, value: event.target.value, index: 0, active: true })), // -> show list
         onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
-            const { key } = event;
+            const { defaultPrevented, key } = event;
+            if (defaultPrevented) return;
             if (key === 'Delete') { // clear value
                 if (search.value) return;
                 setValue();
@@ -127,6 +128,7 @@ export const Select = <T extends {}>({
                 return event.preventDefault();
             }
             if (key === 'Escape' || key === 'Esc') { // hide list
+                if (!search.active) return;
                 setSearch({ value: '', index: -1, active: false });
                 return event.preventDefault();
             }

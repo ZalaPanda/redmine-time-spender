@@ -46,8 +46,16 @@ export const EditTask = ({ task: { color, value: current, created_on, updated_on
         value: value || '', readOnly: !!closed_on,
         style: { textDecoration: closed_on ? 'line-through' : 'none' },
         onChange: (event: ChangeEvent<HTMLInputElement>) => setValue(event.target.value),
-        onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => value === current || event.key === 'Enter' && onChange({ updated_on: dayjs().toJSON(), value }), // save changes
-        onBlur: () => value === current || onChange({ updated_on: dayjs().toJSON(), value }) // save changes
+        onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
+            if (value === current) return;
+            const { defaultPrevented, key } = event;
+            if (defaultPrevented) return;
+            if (key === 'Enter') return onChange({ updated_on: dayjs().toJSON(), value });
+        },
+        onBlur: () => {
+            if (value === current) return;
+            onChange({ updated_on: dayjs().toJSON(), value });
+        }
     });
     const propsToggle = ({
         style: { color },

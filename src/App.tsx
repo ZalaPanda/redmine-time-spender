@@ -81,7 +81,7 @@ export type Settings = {
     theme?: { isDark: boolean, lineHeight: number },
     numberOfDays: number,
     workHours: [start: number, end: number],
-    autoRefresh?: 'hour' | 'day',
+    autoRefresh?: false | 'hour' | 'day',
     lastRefresh?: string,
     skipAnimation: boolean,
     hideInactive: { issues: boolean, activities: boolean, priorities: boolean },
@@ -91,8 +91,9 @@ export type Settings = {
 export const defaultSettings: Settings = {
     redmine: undefined,
     theme: { isDark: true, lineHeight: 1.6 },
-    numberOfDays: 7,
+    numberOfDays: 14,
     workHours: [8, 16],
+    autoRefresh: false,
     skipAnimation: false,
     hideInactive: { issues: false, activities: false, priorities: false }
 };
@@ -216,7 +217,8 @@ export const App = () => {
     const propsTitle = ({
         css: titleStyles,
         onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
-            const { key, ctrlKey } = event;
+            const { defaultPrevented, key, ctrlKey } = event;
+            if (defaultPrevented) return;
             if (ctrlKey && key === 'f') { // turn on search mode
                 setSearch('');
                 return event.preventDefault();
@@ -243,7 +245,8 @@ export const App = () => {
     const propsAddTaskInput = ({
         placeholder: 'Add task', hidden: searching,
         onKeyDown: async (event: KeyboardEvent<HTMLInputElement>) => {
-            const { key, currentTarget: target } = event;
+            const { defaultPrevented, key, currentTarget: target } = event;
+            if (defaultPrevented) return;
             const { value } = target;
             if (key === 'Enter') {
                 const props = { value, created_on: dayjs().toJSON() };

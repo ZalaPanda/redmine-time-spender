@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, FocusEvent, MutableRefObject } from 'react';
+import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, FocusEvent, KeyboardEvent, MutableRefObject } from 'react';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useHover } from '@use-gesture/react';
 import { css, Theme } from '@emotion/react';
@@ -101,7 +101,15 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
     const dialogProps = {
         show: init,
         title: id ? `#${id} issue` : `New issue`,
-        onShow: () => id ? refs.current.subjectInput.focus() : refs.current.projectSelect.focus()
+        onShow: () => id ? refs.current.subjectInput.focus() : refs.current.projectSelect.focus(),
+        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+            const { defaultPrevented, key } = event;
+            if (defaultPrevented) return;
+            if (key === 'Escape' || key === 'Esc') {
+                onDismiss();
+                return event.preventDefault();
+            }
+        }
     };
     const propsProject = {
         placeholder: 'Project', value: project, values: projects, style: { width: 360 },

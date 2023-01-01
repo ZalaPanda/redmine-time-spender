@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject, FocusEvent } from 'react';
+import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, FocusEvent, KeyboardEvent, MutableRefObject } from 'react';
 import { css, Theme } from '@emotion/react';
 import { margin } from 'polished';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiTrash2, FiMessageSquare } from 'react-icons/fi';
@@ -54,7 +54,16 @@ export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive
     const dialogProps = {
         show: init,
         title: id ? `#${id} time entry` : `New time entry`,
-        onShow: () => refs.current.issueSelect.focus()
+        onShow: () => refs.current.issueSelect.focus(),
+        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+            const { defaultPrevented, key } = event;
+            if (defaultPrevented) return;
+            if (key === 'Escape' || key === 'Esc') {
+                debugger;
+                onDismiss();
+                return event.preventDefault();
+            }
+        }
     };
     const propsProject = {
         placeholder: 'Project', value: project, values: projects,

@@ -19,7 +19,8 @@ export const Checkbox = ({ checked = false, value, onChange, children, ...props 
     const propsBase = {
         ...props, tabIndex: 0, css: checkboxStyles,
         onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
-            const { key } = event;
+            const { defaultPrevented, key } = event;
+            if (defaultPrevented) return;
             if (key === ' ' || key === 'Spacebar') onChange && onChange(value ?? !checked);
         },
         onClick: () => {

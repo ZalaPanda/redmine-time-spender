@@ -18,7 +18,7 @@ import { Checkbox } from './atoms/Checkbox';
 const configStyles = (theme: Theme) => css([
     globalStyles(theme),
     {
-        'body': { minHeight: 380, ...padding(10, 14) },
+        'body': { width: 440, minHeight: 380, ...padding(10, 14) },
         'hr': { ...margin(10, 0), border: 0, borderBottom: 1, borderColor: theme.border },
         'section': {
             display: 'flex', alignItems: 'center',
@@ -169,12 +169,9 @@ export const Config = () => {
         defaultValue: workHoursEnd, type: 'number', step: 1, min: workHoursStart, max: 24,
         onChange: (event: ChangeEvent<HTMLInputElement>) => changeSettings({ workHours: [workHoursStart, Number(event.target.value) || workHoursEnd] })
     };
-    const propsAutoRefreshRadio = (value: true | 'hour' | 'day') => ({
+    const propsAutoRefreshRadio = (value: false | 'hour' | 'day') => ({
         value, checked: autoRefresh === value, css: checkboxStyles,
-        onChange: (autoRefresh?: 'hour' | 'day') => {
-            console.log('CHANGE!', autoRefresh);
-            changeSettings({ autoRefresh });
-        }
+        onChange: (autoRefresh: true | 'hour' | 'day') => changeSettings({ autoRefresh: autoRefresh === true ? false : autoRefresh })
     });
     const propsThemeIsDarkRadio = (value: boolean) => ({
         value, checked: isDark === value, css: checkboxStyles,
@@ -242,7 +239,7 @@ export const Config = () => {
             </section>
             <section>
                 <label>Auto refresh:</label>
-                <Checkbox {...propsAutoRefreshRadio(true)}>Off</Checkbox>
+                <Checkbox {...propsAutoRefreshRadio(false)}>Off</Checkbox>
                 <Checkbox {...propsAutoRefreshRadio('hour')}>Hourly</Checkbox>
                 <Checkbox {...propsAutoRefreshRadio('day')}>Daily</Checkbox>
             </section>
