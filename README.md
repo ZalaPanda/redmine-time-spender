@@ -28,16 +28,4 @@ Roadmap
 - [X] quick search (`CTRL`+`F`) in tasks and time entries
 - [X] beta test
 - [X] publish 1.0 🍰
-
-Future plans
-------------
-* create issues in redmine - #4
-* maybe replace webpack with [esbuild](https://esbuild.github.io/)
-
-TODO
-----
-- [X] fix Select focus/blur problem (reason: the portal)
-- [ ] ~~replace `no more options` in *time entry* dialog *issue* field with `add new issue`~~
-- [X] check icons in *time entry* dialog *issue* field
-- [X] more testing with multiple custom fields
-- [X] check both issue dates
+- [X] create issues in redmine - #4

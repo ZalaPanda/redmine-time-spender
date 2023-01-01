@@ -30,7 +30,7 @@ const fieldsStyles = (theme: Theme) => css({
         display: 'flex', alignItems: 'center', padding: 2,
         '&>label': { color: theme.field.text }, // label with svg icon
         '&>div': { flexGrow: 1 }, // project, tracker, priority, status, category
-        '&>div>small': { color: theme.border, textOverflow: 'ellipsis' }, // assigned to
+        '&>div>small': { color: theme.field.text }, // assigned to
         '&>textarea': { color: theme.muted, flexGrow: 1 }, // comments
         '&>input[type=text]': { flexGrow: 1 }, // subject
         '&>input[type=number]': { // estimated hours, done percent
