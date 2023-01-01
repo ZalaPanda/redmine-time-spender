@@ -29,8 +29,16 @@ const fieldsStyles = (theme: Theme) => css({
     '&>div': {
         display: 'flex', alignItems: 'center', padding: 2,
         '&>label': { color: theme.field.text }, // label with svg icon
-        '&>div': { flexGrow: 1 }, // project, issue, activity
-        '&>textarea': { color: theme.muted, flexGrow: 1 } // comments
+        '&>div': { flexGrow: 1 }, // project, tracker, priority, status, category
+        '&>div>small': { color: theme.border, textOverflow: 'ellipsis' }, // assigned to
+        '&>textarea': { color: theme.muted, flexGrow: 1 }, // comments
+        '&>input[type=text]': { flexGrow: 1 }, // subject
+        '&>input[type=number]': { // estimated hours, done percent
+            width: 60, ...padding(2, 6),
+            borderRadius: 4, borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent',
+            '&[success]': { borderColor: theme.success },
+            '&[danger]': { borderColor: theme.danger }
+        }
     },
     '&>div:focus-within': {
         '&>label': { color: theme.field.focus }, // label with svg icon
@@ -47,13 +55,6 @@ const pagerCircleStyles = (theme: Theme) => css({
     display: 'flex', justifyContent: 'center', height: 6,
     '&>svg': { fill: theme.button.hover, cursor: 'pointer' },
     '&>svg[active]': { fill: theme.button.active }
-});
-
-const numericInputStyles = (theme: Theme) => css({
-    width: 60,
-    ...padding(2, 6), borderRadius: 4, borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent',
-    '&[success]': { borderColor: theme.success },
-    '&[danger]': { borderColor: theme.danger }
 });
 
 export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive, onSubmit, onChangeFavorites, onDismiss }: EditEntryProps) => {
@@ -177,7 +178,7 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
         })
     };
     const propsSubject = {
-        placeholder: 'Subject', value: subject || '',
+        placeholder: 'Subject', type: 'text', value: subject || '',
         ref: (ref: HTMLInputElement) => refs.current.subjectInput = ref,
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, subject: event.target.value }))
     };
@@ -201,12 +202,12 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
         }))
     });
     const propsEstimatedHours = {
-        placeholder: 'Hours', value: estimated_hours || '', type: 'number', min: 0, step: 0.25, css: numericInputStyles,
+        placeholder: 'Hours', value: estimated_hours || '', type: 'number', min: 0, step: 0.25,
         title: spent_hours ? `Spent hours: ${spent_hours}` : 'Estimated Hours', danger: spent_hours > estimated_hours ? '' : null,
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, estimated_hours: Number(event.target.value) }))
     };
     const propsDoneRatio = {
-        placeholder: '%', value: done_ratio || '', type: 'number', min: 0, max: 100, step: 10, css: numericInputStyles,
+        placeholder: '%', value: done_ratio || '', type: 'number', min: 0, max: 100, step: 10,
         title: '% Done', success: done_ratio === 100 ? '' : null,
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, done_ratio: Number(event.target.value) }))
     };
@@ -283,7 +284,7 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
                 <button {...propsClose}><FiX /></button>
                 {id && <button {...propsLink}><FiExternalLink /></button>}
                 {!id && <Checkbox {...propsAssignToMe}>Assign to me</Checkbox>}
-                <div />
+                <div>{id && <small>{assigned_to?.name}</small>}</div>
                 <label title={'Estimate/Done'}><FiTrendingUp /></label>
                 <input {...propsEstimatedHours} />
                 <input {...propsDoneRatio} />
