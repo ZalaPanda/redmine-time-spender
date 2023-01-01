@@ -28,7 +28,4 @@ Roadmap
 - [X] quick search (`CTRL`+`F`) in tasks and time entries
 - [X] beta test
 - [X] publish 1.0 🍰
-
-Future plans
-------------
-* what's new page
+- [X] create issues in redmine - #4

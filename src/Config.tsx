@@ -1,23 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ThemeProvider, createUseStyles } from 'react-jss';
+import { useState, useEffect, useRef, MouseEvent, KeyboardEvent, FocusEvent, ChangeEvent } from 'react';
+import { css, Theme, ThemeProvider, Global } from '@emotion/react';
 import { FiKey, FiUnlock } from 'react-icons/fi';
 import { Globals } from '@react-spring/web';
+import { margin, padding } from 'polished';
 
-import { themes } from './themes.js';
-import { createKey, createCryptoApi, convertBinToHex } from './apis/crypto.js';
-import { createRedmineApi } from './apis/redmine.js';
-import { createUnentryptedDatabase } from './apis/database.js';
-import { useAsyncEffect, useRaise } from './apis/uses.js';
+import { globalStyles, themes } from './themes';
+import { createKey, createCryptoApi, convertBinToHex } from './apis/crypto';
+import { createRedmineApi } from './apis/redmine';
+import { createUnentryptedDatabase } from './apis/database';
+import { useAsyncEffect, useRaise } from './apis/uses';
 
-import { useGlobalStyles, storage, cookie, defaultSettings } from './App.jsx';
-import { Toaster } from './Toaster.jsx';
-import { Collapsible } from './atoms/Collapsible.jsx';
-import { Checkbox } from './atoms/Checkbox.jsx';
+import { storage, cookie, defaultSettings, Settings } from './App';
+import { Toaster } from './Toaster';
+import { Collapsible } from './atoms/Collapsible';
+import { Checkbox } from './atoms/Checkbox';
 
-const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
-    '@global': {
-        'body': { minHeight: 380, padding: [10, 14] },
-        'hr': { margin: [10, 0], border: 0, borderBottom: [1, 'solid', theme.border] },
+const configStyles = (theme: Theme) => css([
+    globalStyles(theme),
+    {
+        'body': { width: 440, minHeight: 380, ...padding(10, 14) },
+        'hr': { ...margin(10, 0), border: 0, borderBottom: 1, borderColor: theme.border },
         'section': {
             display: 'flex', alignItems: 'center',
             '&>svg': { color: theme.field.text },
@@ -31,30 +33,32 @@ const useStyles = createUseStyles(/** @param {Theme} theme */ theme => ({
         'section:focus-within': {
             '&>svg': { color: theme.field.focus }, // label with svg icon
         },
-        'button': { border: [1, 'solid', theme.border] }
-    },
-    checkbox: { cursor: 'pointer' },
-    help: { padding: 10 }
-}));
+        'button': { borderWidth: 1, borderStyle: 'solid', borderColor: theme.border }
+    }
+]);
 
-const Options = () => {
-    const refs = useRef({ baseUrlInput: undefined, apiKeyInput: undefined, setupButton: undefined, resetButton: undefined })
+const checkboxStyles = css({ cursor: 'pointer' });
+
+export const Config = () => {
+    const refs = useRef({
+        baseUrlInput: undefined as HTMLInputElement,
+        apiKeyInput: undefined as HTMLInputElement,
+        setupButton: undefined as HTMLButtonElement,
+        resetButton: undefined as HTMLButtonElement
+    });
     const raiseError = useRaise('error');
 
-    /** @type {[Settings, React.Dispatch<(prevState: Settings) => Settings>]} */
-    const [settings, setSettings] = useState();
+    const [settings, setSettings] = useState<Settings>();
     useAsyncEffect(async ({ aborted }) => { // load settings from local storage
-        const settings = await storage.get();
+        const settings = await storage.get() as Settings;
         if (aborted) return;
         setSettings({ ...defaultSettings, ...settings });
-        if (!settings?.redmine) refs.current.baseUrlInput?.focus(); // focus on base Url input
+        if (settings?.redmine) return;
+        refs.current.baseUrlInput?.focus(); // focus on base Url input
+        setHelp('BaseUrl');
     }, []);
 
-    /** @type {[Theme, React.Dispatch<(prevState: Theme) => Theme>]} */
-    const [theme, setTheme] = useState({ ...themes['dark'], lineHeight: 1.6 });
-    useGlobalStyles({ theme });
-    const classes = useStyles({ theme });
-
+    const [theme, setTheme] = useState<Theme>({ ...themes['dark'], lineHeight: 1.6 });
     useEffect(() => { // update theme
         if (!settings?.theme) return;
         const { theme: { isDark, lineHeight } } = settings;
@@ -67,28 +71,39 @@ const Options = () => {
         Globals.assign({ skipAnimation });
     }, [settings?.skipAnimation]);
 
-    /** @type {[string, React.Dispatch<(prevState: string) => string>]} */
-    const [help, setHelp] = useState();
+    const [help, setHelp] = useState<string | undefined>();
 
     const { redmine: { baseUrl } = {}, theme: { isDark, lineHeight } = {}, numberOfDays, workHours: [workHoursStart, workHoursEnd], skipAnimation, autoRefresh, hideInactive } = settings ?? defaultSettings;
     const propsBaseUrlInput = {
-        ref: ref => refs.current.baseUrlInput = ref, name: 'BaseUrl', placeholder: 'Step 1 > Redmine URL', defaultValue: baseUrl, disabled: !!baseUrl,
-        onFocus: event => event.target.select() || setHelp(event.target.name), onBlur: _ => setHelp(),
-        onKeyDown: event => event.which === 13 && refs.current.apiKeyInput.focus()
+        ref: (ref: HTMLInputElement) => refs.current.baseUrlInput = ref,
+        name: 'BaseUrl', placeholder: 'Step 1 > Redmine URL', defaultValue: baseUrl, disabled: !!baseUrl,
+        onFocus: (event: FocusEvent<HTMLInputElement>) => { event.target.select(); setHelp(event.target.name); },
+        onBlur: () => { setHelp(undefined); },
+        onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => { event.key === 'Enter' && refs.current.apiKeyInput?.focus(); }
     };
     const propsApiKeyInput = {
-        ref: ref => refs.current.apiKeyInput = ref, name: 'ApiKey', placeholder: 'Step 2 > API key', defaultValue: baseUrl ? '#'.repeat(40) : '', type: 'password', disabled: !!baseUrl,
-        onFocus: event => event.target.select() || setHelp(event.target.name), onBlur: _ => setHelp(),
-        onKeyDown: event => event.which === 13 && refs.current.setupButton.focus()
+        ref: (ref: HTMLInputElement) => refs.current.apiKeyInput = ref,
+        name: 'ApiKey', placeholder: 'Step 2 > API key', defaultValue: baseUrl ? '#'.repeat(40) : '', type: 'password', disabled: !!baseUrl,
+        onFocus: (event: FocusEvent<HTMLInputElement>) => { event.target.select(); setHelp(event.target.name); },
+        onBlur: () => { setHelp(undefined); },
+        onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => { event.key === 'Enter' && refs.current.setupButton?.focus(); }
     };
 
     const propsSetupButton = {
-        ref: ref => refs.current.setupButton = ref,
-        onClick: async _ => {
-            const baseUrl = refs.current.baseUrlInput.value.replace(/\/+$/, '/');
-            if (!baseUrl) return refs.current.baseUrlInput.focus() || raiseError('Base URL is missing');
-            const apiKey = refs.current.apiKeyInput.value;
-            if (!apiKey) return refs.current.apiKeyInput.focus() || raiseError('Api key is missing');
+        ref: (ref: HTMLButtonElement) => refs.current.setupButton = ref,
+        onClick: async () => {
+            const baseUrl = refs.current.baseUrlInput?.value.replace(/\/+$/, '/');
+            if (!baseUrl) {
+                refs.current.baseUrlInput?.focus();
+                raiseError('Base URL is missing');
+                return;
+            }
+            const apiKey = refs.current.apiKeyInput?.value;
+            if (!apiKey) {
+                refs.current.apiKeyInput?.focus();
+                raiseError('Api key is missing');
+                return;
+            }
             try {
                 const result = await cookie(baseUrl).permission.contains(); // check permission to redmine cookies
                 if (!result) await cookie(baseUrl).permission.request(); // request permission
@@ -99,15 +114,15 @@ const Options = () => {
                 const crypto = createCryptoApi(cryptoKey);
                 const encodedKey = convertBinToHex(crypto.encrypt(apiKey)); // encrypt API key
                 await storage.set({ redmine: { baseUrl, encodedKey } }); // save URL and encoded API key
-                setSettings(settings => ({ ...settings, redmine: { baseUrl, encodedKey } }));
+                setSettings(settings => settings && { ...settings, redmine: { baseUrl, encodedKey } });
             } catch (error) {
                 raiseError(error);
             }
         }
     };
     const propsResetButton = {
-        ref: ref => refs.current.resetButton = ref,
-        onClick: async _ => {
+        ref: (ref: HTMLButtonElement) => refs.current.resetButton = ref,
+        onClick: async () => {
             try {
                 // await cookie(baseUrl).permission.remove(); // remove permission to redmine cookies
                 const database = createUnentryptedDatabase();
@@ -116,18 +131,24 @@ const Options = () => {
                     database.table('projects').clear(),
                     database.table('issues').clear(),
                     database.table('activities').clear(),
+                    database.table('priorities').clear(),
+                    database.table('statuses').clear(),
                     database.table('entries').clear(),
-                    database.table('tasks').clear() // TODO: transfer tasks?
+                    database.table('tasks').clear()
                 ]);
                 await storage.remove('redmine');
-                setSettings(({ redmine, ...settings }) => settings);
+                setSettings(settings => {
+                    if (!settings) return settings;
+                    const { redmine, ...cleared } = settings;
+                    return cleared;
+                });
             } catch (error) {
                 raiseError(error);
             }
         }
     };
 
-    const changeSettings = async changes => {
+    const changeSettings = async (changes: Partial<Settings>) => {
         try {
             await storage.set(changes);
             setSettings(settings => ({ ...settings, ...changes }));
@@ -138,65 +159,68 @@ const Options = () => {
 
     const propsNumberOfDaysInput = {
         defaultValue: numberOfDays, type: 'number', step: 1, min: 0, max: 28,
-        onChange: event => changeSettings({ numberOfDays: Number(event.target.value) || numberOfDays })
+        onChange: (event: ChangeEvent<HTMLInputElement>) => changeSettings({ numberOfDays: Number(event.target.value) || numberOfDays })
     };
     const propsWorkHoursStartInput = {
         defaultValue: workHoursStart, type: 'number', step: 1, min: 0, max: workHoursEnd,
-        onChange: event => changeSettings({ workHours: [Number(event.target.value) || workHoursStart, workHoursEnd] })
+        onChange: (event: ChangeEvent<HTMLInputElement>) => changeSettings({ workHours: [Number(event.target.value) || workHoursStart, workHoursEnd] })
     };
     const propsWorkHoursEndInput = {
         defaultValue: workHoursEnd, type: 'number', step: 1, min: workHoursStart, max: 24,
-        onChange: event => changeSettings({ workHours: [workHoursStart, Number(event.target.value) || workHoursEnd] })
+        onChange: (event: ChangeEvent<HTMLInputElement>) => changeSettings({ workHours: [workHoursStart, Number(event.target.value) || workHoursEnd] })
     };
-    const propsAutoRefreshRadio = value => ({
-        value, checked: autoRefresh === value, className: classes.checkbox,
-        onChange: autoRefresh => changeSettings({ autoRefresh })
+    const propsAutoRefreshRadio = (value: false | 'hour' | 'day') => ({
+        value, checked: autoRefresh === value, css: checkboxStyles,
+        onChange: (autoRefresh: true | 'hour' | 'day') => changeSettings({ autoRefresh: autoRefresh === true ? false : autoRefresh })
     });
-    const propsThemeIsDarkRadio = value => ({
-        value, checked: isDark === value, className: classes.checkbox,
-        onChange: isDark => changeSettings({ theme: { isDark, lineHeight } })
+    const propsThemeIsDarkRadio = (value: boolean) => ({
+        value, checked: isDark === value, css: checkboxStyles,
+        onChange: (isDark: boolean) => changeSettings({ theme: { isDark, lineHeight } })
     })
-    const propsLineHeightRadio = value => ({
-        value, checked: lineHeight === value, className: classes.checkbox,
-        onChange: lineHeight => changeSettings({ theme: { isDark, lineHeight } })
+    const propsLineHeightRadio = (value: number) => ({
+        value, checked: lineHeight === value, css: checkboxStyles,
+        onChange: (lineHeight: number) => changeSettings({ theme: { isDark, lineHeight } })
     });
     const propsSkipAnimationCheckbox = {
-        checked: skipAnimation, className: classes.checkbox,
-        onChange: skipAnimation => changeSettings({ skipAnimation })
+        checked: !!skipAnimation, css: checkboxStyles,
+        onChange: (skipAnimation: boolean) => changeSettings({ skipAnimation })
     };
     const propsHideInactiveIssuesCheckbox = {
-        checked: hideInactive.issues, className: classes.checkbox,
-        onChange: issues => changeSettings({ hideInactive: { ...hideInactive, issues } })
+        checked: hideInactive.issues, css: checkboxStyles,
+        onChange: (issues: boolean) => changeSettings({ hideInactive: { ...hideInactive, issues } })
     };
     const propsHideInactiveActivitiesCheckbox = {
-        checked: hideInactive.activities, className: classes.checkbox,
-        onChange: activities => changeSettings({ hideInactive: { ...hideInactive, activities } })
+        checked: hideInactive.activities, css: checkboxStyles,
+        onChange: (activities: boolean) => changeSettings({ hideInactive: { ...hideInactive, activities } })
+    };
+    const propsHideInactivePrioritiesCheckbox = {
+        checked: hideInactive.priorities, css: checkboxStyles,
+        onChange: (priorities: boolean) => changeSettings({ hideInactive: { ...hideInactive, priorities } })
     };
     const propsExtensionsShortcutsLink = {
         href: 'chrome://extensions/shortcuts', target: '_blank',
-        onClick: event => {
+        onClick: (event: MouseEvent<HTMLAnchorElement>) => {
             event.preventDefault();
             chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
         }
     };
 
     return <ThemeProvider theme={theme}>
+        <Global styles={configStyles} />
         <Toaster />
         <section>
             <FiUnlock />
             <input {...propsBaseUrlInput} />
-            {/* <FiHelpCircle {...propsHelpToggle('BaseUrl')} /> */}
         </section>
-        <Collapsible open={true || help === 'BaseUrl'} className={classes.help}>
+        <Collapsible open={help === 'BaseUrl'}>
             <small>The <b>base URL</b> of the used Redmine:</small>
             <img src={'img/Redmine-URL.png'} />
         </Collapsible>
         <section>
             <FiKey />
             <input {...propsApiKeyInput} />
-            {/* <FiHelpCircle {...propsHelpToggle('ApiKey')} /> */}
         </section>
-        <Collapsible open={true || help === 'ApiKey'} className={classes.help}>
+        <Collapsible open={help === 'ApiKey'}>
             <small>The <b>API access key</b> under <b>My account</b> in Redmine:</small>
             <img src={'img/API-key.png'} />
         </Collapsible>
@@ -223,6 +247,7 @@ const Options = () => {
                 <label>Hide inactive:</label>
                 <Checkbox {...propsHideInactiveIssuesCheckbox}>Issues</Checkbox>
                 <Checkbox {...propsHideInactiveActivitiesCheckbox}>Activities</Checkbox>
+                <Checkbox {...propsHideInactivePrioritiesCheckbox}>Prios</Checkbox>
             </section>
             <section>
                 <label>Hotkey:</label>
@@ -246,5 +271,3 @@ const Options = () => {
         </section>
     </ThemeProvider >;
 };
-
-export default Options;
