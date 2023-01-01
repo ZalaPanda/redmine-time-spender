@@ -98,6 +98,11 @@ export const defaultSettings: Settings = {
     hideInactive: { issues: false, activities: false, priorities: false }
 };
 
+const drafts = {
+    entry: JSON.parse(window.localStorage.getItem('draft-entry')), // saved in EditEntry in a useEffect
+    issue: JSON.parse(window.localStorage.getItem('draft-issue'))  // saved in EditIssue in a useEffect
+};
+
 export const App = () => {
     const refs = useRef({
         addIssueButton: undefined as HTMLButtonElement,
@@ -140,8 +145,8 @@ export const App = () => {
     const [search, setSearch] = useState<string | undefined>();
     const searching = search !== undefined;
     const [today, setToday] = useState(days[0]);
-    const [entry, setEntry] = useState<Partial<EntryExt> | undefined>(JSON.parse(window.localStorage.getItem('draft-entry'))); // saved in EditEntry in a useEffect
-    const [issue, setIssue] = useState<Partial<IssueExt> | undefined>(JSON.parse(window.localStorage.getItem('draft-issue'))); // saved in EditIssue in a useEffect
+    const [entry, setEntry] = useState<Partial<EntryExt> | undefined>();
+    const [issue, setIssue] = useState<Partial<IssueExt> | undefined>();
 
     const filteredTasks = useMemo(() => {
         const exp = searching && RegExp((search || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') || null;
@@ -167,6 +172,7 @@ export const App = () => {
         setRedmine(redmine);
         setDatabase(database);
         const { autoRefresh, lastRefresh } = settings; // handle auto refresh
+        if (!autoRefresh) return;
         if (await database.table('activities').count() && autoRefresh && lastRefresh && dayjs().isSame(dayjs(lastRefresh), autoRefresh)) return;
         refs.current.refreshButton.click();
     }, [settings?.redmine]);
@@ -205,7 +211,11 @@ export const App = () => {
             database.table('statuses').toArray() as Promise<Status[]>
         ]);
         if (aborted) return;
-        startTransition(() => setLists({ projects, issues, activities, priorities, statuses }));
+        startTransition(() => {
+            setLists({ projects, issues, activities, priorities, statuses });
+            setEntry(drafts.entry);
+            setIssue(drafts.issue);
+        });
     };
     useAsyncEffect(async ({ aborted }) => {
         if (!database) return;
