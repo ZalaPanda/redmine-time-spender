@@ -1,16 +1,18 @@
-import { useSpring, animated, config } from '@react-spring/web';
-import { css, Theme } from '@emotion/react';
-import { margin } from 'polished';
 import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject } from 'react';
-import { FiHash, FiPackage, FiX, FiCheck, FiMessageSquare, FiCalendar, FiChevronsRight, FiBookmark, FiInfo, FiTrendingUp, FiMenu } from 'react-icons/fi';
+import { useSpring, animated, config } from '@react-spring/web';
+import { useHover } from '@use-gesture/react';
+import { css, Theme } from '@emotion/react';
+import { margin, padding } from 'polished';
+import { FiHash, FiPackage, FiX, FiCheck, FiMessageSquare, FiCalendar, FiChevronsRight, FiBookmark, FiInfo, FiTrendingUp, FiMenu, FiExternalLink } from 'react-icons/fi';
+
 import { Category, CustomField, Issue, IssueExt, Priority, Project, Status, Tracker } from './apis/redmine';
+import { useRaise } from './apis/uses';
+
 import { Favorites, Lists } from './App';
+import { Dialog } from './Dialog';
 import { Checkbox } from './atoms/Checkbox';
 import { Select } from './atoms/Select';
 import { Textarea } from './atoms/Textarea';
-import { Dialog } from './Dialog';
-import { useHover } from '@use-gesture/react';
-import { useRaise } from './apis/uses';
 
 interface EditEntryProps {
     issue: Partial<IssueExt>,
@@ -49,9 +51,9 @@ const pagerCircleStyles = (theme: Theme) => css({
 
 const numericInputStyles = (theme: Theme) => css({
     width: 60,
-    // borderRadius: 4, // TODO: ???
-    // '&[success]': { backgroundColor: theme.success },
-    // '&[danger]': { backgroundColor: theme.danger }
+    ...padding(2, 8), borderRadius: 4, borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent',
+    '&[success]': { backgroundColor: theme.success },
+    '&[danger]': { backgroundColor: theme.danger }
 });
 
 export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive, onSubmit, onChangeFavorites, onDismiss }: EditEntryProps) => {
@@ -186,7 +188,7 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
         placeholder: name, value: multiple && Array.isArray(value) ? value.join('\r\n') : String(value || ''),
         onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({
             ...issue, custom_fields: issue.custom_fields.map(custom_field => custom_field.id === id ?
-                ({ ...custom_field, value: custom_field.multiple ? event.target.value.split('\r\n') : event.target.value }) : custom_field)
+                ({ ...custom_field, value: custom_field.multiple ? event.target.value.split(/\r\n|\r|\n/) : event.target.value }) : custom_field)
         }))
     });
     const propsEstimatedHours = {
@@ -202,6 +204,9 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
 
     const propsSubmit = {
         title: 'Submit', onClick: () => onSubmit(issue)
+    };
+    const propsLink = {
+        title: 'Link', onClick: () => chrome.tabs.create({ url: `${baseUrl}/issues/${id}`, active: false })
     };
     const propsClose = {
         title: 'Close', onClick: () => onDismiss()
@@ -267,6 +272,7 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
             <div>
                 <button {...propsSubmit}><FiCheck /></button>
                 <button {...propsClose}><FiX /></button>
+                {id && <button {...propsLink}><FiExternalLink /></button>}
                 {!id && <Checkbox {...propsAssignToMe}>Assign to me</Checkbox>}
                 <div />
                 <label title={'Estimate/Done'}><FiTrendingUp /></label>

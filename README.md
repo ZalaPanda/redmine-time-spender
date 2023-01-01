@@ -38,6 +38,6 @@ TODO
 ----
 - [X] fix Select focus/blur problem (reason: the portal)
 - [ ] replace `no more options` in *time entry* dialog *issue* field with `add new issue`
-- [ ] check icons in *time entry* dialog *issue* field
-- [ ] more testing with multiple custom fields
+- [X] check icons in *time entry* dialog *issue* field
+- [X] more testing with multiple custom fields
 - [ ] check both issue dates
