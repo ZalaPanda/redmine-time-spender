@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { css, Theme } from '@emotion/react';
 import { padding } from 'polished';
 import { useGesture } from '@use-gesture/react';
-import { FiChevronDown, FiChevronsDown, FiEdit, FiExternalLink, FiStar, FiX } from 'react-icons/fi';
+import { FiChevronDown, FiChevronsDown, FiEdit3, FiExternalLink, FiStar, FiX } from 'react-icons/fi';
 import { useListen } from '../apis/uses';
 
 const selectStyles = css({
@@ -138,6 +138,9 @@ export const Select = <T extends {}>({
     });
     const propsList = ({
         ref: (ref: HTMLDivElement) => refs.current.list = ref,
+        onBlur: () => refs.current.timeout = setTimeout(() => setSearch({ value: '', index: -1, active: false }), 100), // -> start list hide timeout
+        onFocus: () => clearTimeout(refs.current.timeout), // -> cancel list hide timeout
+        tabIndex: -1, // needed to detect focus/blur events
         css: listStyles,
         style: useMemo(() => {
             if (!search?.active) return undefined;
@@ -193,7 +196,7 @@ export const Select = <T extends {}>({
         <label>
             <div>{!search.value && current && render(current, true) || null}</div>
             {!!linkify && current && !search.value && <a {...propsLink(current)}><FiExternalLink /></a>}
-            {!!onEdit && <a {...propsEdit(current)}><FiEdit /></a>}
+            {!!onEdit && current && <a {...propsEdit(current)}><FiEdit3 /></a>}
             {current && <a {...propsClear}><FiX /></a>}
             {search.active ? <FiChevronsDown {...propsToggle} /> : <FiChevronDown {...propsToggle} />}
         </label>
@@ -202,7 +205,7 @@ export const Select = <T extends {}>({
             {search.active && <div {...propsList}>
                 {filtered.slice(0, limit).map((value, index) => <div {...propsItem(value, index)}>
                     {!!onFavorite && <a {...propsFavorite(value)}><FiStar /></a>}
-                    {!!onEdit && <a {...propsEdit(value)}><FiEdit /></a>}
+                    {!!onEdit && <a {...propsEdit(value)}><FiEdit3 /></a>}
                     {!!linkify && <a {...propsLink(value)}><FiExternalLink /></a>}
                     {render(value)}
                 </div>)}

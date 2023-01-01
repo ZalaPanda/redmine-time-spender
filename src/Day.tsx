@@ -1,7 +1,7 @@
 import { useMemo, MouseEvent, HTMLAttributes } from 'react';
 import { css, Theme } from '@emotion/react';
 import { margin, padding } from 'polished';
-import { FiEdit } from 'react-icons/fi';
+import { FiEdit3 } from 'react-icons/fi';
 import { Collapsible } from './atoms/Collapsible';
 import dayjs from 'dayjs';
 import { EntryExt } from './apis/redmine';
@@ -79,7 +79,7 @@ const DayEntry = ({ project, issue, activity, hours, sumHours, comments, baseUrl
             </svg>
             <button disabled={disabled} onClick={onSelect}>
                 <b>{+hours.toFixed(2)}h</b>
-                <FiEdit />
+                <FiEdit3 />
             </button>
         </div>
         <label css={activityStyles}>{activity.name}</label>
