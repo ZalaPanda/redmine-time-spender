@@ -10,7 +10,7 @@ database.version(1).stores({
     tasks: '++id, closed_on'
 });
 database.version(2).stores({
-    projects: '&id, updated_on',
+    projects: '++, &id, updated_on',
     issues: '&id, updated_on',
     activities: '&id, active',
     priorities: '&id, active',
