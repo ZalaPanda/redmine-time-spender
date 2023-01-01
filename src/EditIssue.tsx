@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject } from 'react';
+import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, FocusEvent, MutableRefObject } from 'react';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useHover } from '@use-gesture/react';
 import { css, Theme } from '@emotion/react';
@@ -51,12 +51,13 @@ const pagerCircleStyles = (theme: Theme) => css({
 
 const numericInputStyles = (theme: Theme) => css({
     width: 60,
-    ...padding(2, 8), borderRadius: 4, borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent',
-    '&[success]': { backgroundColor: theme.success },
-    '&[danger]': { backgroundColor: theme.danger }
+    ...padding(2, 6), borderRadius: 4, borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent',
+    '&[success]': { borderColor: theme.success },
+    '&[danger]': { borderColor: theme.danger }
 });
 
 export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive, onSubmit, onChangeFavorites, onDismiss }: EditEntryProps) => {
+    const uniqueKey = useMemo(() => init ? Date.now() : undefined, [init]);
     const refs = useRef({
         projectSelect: undefined as HTMLInputElement,
         subjectInput: undefined as HTMLInputElement
@@ -173,8 +174,8 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, subject: event.target.value }))
     };
     const propsDescription = {
-        placeholder: 'Description', value: description || '',
-        onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({ ...issue, description: event.target.value }))
+        placeholder: 'Description', key: uniqueKey, defaultValue: description || '',
+        onBlur: (event: FocusEvent<HTMLTextAreaElement>) => setIssue(issue => ({ ...issue, description: event.target.value }))
     };
     const propsStartDate = {
         title: 'Start date', type: 'date', value: start_date || '',
@@ -185,20 +186,20 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, due_date: event.target.value }))
     };
     const propsCustomField = ({ id, name, value, multiple }: CustomField) => ({
-        placeholder: name, value: multiple && Array.isArray(value) ? value.join('\r\n') : String(value || ''),
-        onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setIssue(issue => ({
+        placeholder: name, key: uniqueKey, defaultValue: multiple && Array.isArray(value) ? value.join('\r\n') : String(value || ''),
+        onBlur: (event: FocusEvent<HTMLTextAreaElement>) => setIssue(issue => ({
             ...issue, custom_fields: issue.custom_fields.map(custom_field => custom_field.id === id ?
                 ({ ...custom_field, value: custom_field.multiple ? event.target.value.split(/\r\n|\r|\n/) : event.target.value }) : custom_field)
         }))
     });
     const propsEstimatedHours = {
         placeholder: 'Hours', value: estimated_hours || '', type: 'number', min: 0, step: 0.25, css: numericInputStyles,
-        title: spent_hours ? `Spent hours: ${spent_hours}` : 'Estimated Hours', // danger: spent_hours > estimated_hours ? '' : null,
+        title: spent_hours ? `Spent hours: ${spent_hours}` : 'Estimated Hours', danger: spent_hours > estimated_hours ? '' : null,
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, estimated_hours: Number(event.target.value) }))
     };
     const propsDoneRatio = {
         placeholder: '%', value: done_ratio || '', type: 'number', min: 0, max: 100, step: 10, css: numericInputStyles,
-        title: '% Done', // success: done_ratio === 100 ? '' : null,
+        title: '% Done', success: done_ratio === 100 ? '' : null,
         onChange: (event: ChangeEvent<HTMLInputElement>) => setIssue(issue => ({ ...issue, done_ratio: Number(event.target.value) }))
     };
 

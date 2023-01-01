@@ -1,14 +1,12 @@
 import { useEffect, useRef, HTMLAttributes } from 'react';
 
-interface TextareaProps extends HTMLAttributes<HTMLTextAreaElement> {
-    value: string
-};
-
-export const Textarea = ({ value, ...props }: TextareaProps) => {
+export const Textarea = ({ defaultValue, ...props }: HTMLAttributes<HTMLTextAreaElement>) => {
     const element = useRef<HTMLTextAreaElement>();
-    useEffect(() => {
+    const adjustSize = () => {
+        console.log(element.current.value, element.current.style.height);
         element.current.style.height = '0px'; // reset height
         element.current.style.height = element.current.scrollHeight && `${Math.min(element.current.scrollHeight, 85)}px` || ''; // set scroll height - max 3 rows
-    }, [value]);
-    return <textarea ref={element} value={value} {...props} />
+    };
+    useEffect(adjustSize, [defaultValue]);
+    return <textarea ref={element} defaultValue={defaultValue} onChangeCapture={adjustSize} {...props} />
 };

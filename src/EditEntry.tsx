@@ -1,6 +1,6 @@
+import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject, FocusEvent } from 'react';
 import { css, Theme } from '@emotion/react';
 import { margin } from 'polished';
-import { useState, useRef, useMemo, useEffect, startTransition, ChangeEvent, MutableRefObject } from 'react';
 import { FiClock, FiHash, FiPackage, FiX, FiCheck, FiCopy, FiTrash2, FiMessageSquare } from 'react-icons/fi';
 import { Activity, EntryExt, Issue, Project } from './apis/redmine';
 import { Favorites, Lists } from './App';
@@ -36,6 +36,7 @@ interface EditEntryProps {
 };
 
 export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onDelete, onEditIssue, onChangeFavorites, onDismiss }: EditEntryProps) => {
+    const uniqueKey = useMemo(() => init ? Date.now() : undefined, [init]);
     const refs = useRef({
         issueSelect: undefined as HTMLInputElement
     });
@@ -100,8 +101,8 @@ export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive
         })
     };
     const propsComments = {
-        placeholder: 'Comments', value: comments || '',
-        onChange: (event: ChangeEvent<HTMLTextAreaElement>) => setEntry(entry => ({ ...entry, comments: event.target.value }))
+        placeholder: 'Comments', key: uniqueKey, defaultValue: comments || '',
+        onBlur: (event: FocusEvent<HTMLTextAreaElement>) => setEntry(entry => ({ ...entry, comments: event.target.value }))
     };
     const propsSpentOn = {
         title: 'Spent on', type: 'date', value: spent_on || '',
