@@ -101,7 +101,7 @@ export const EditIssue = ({ issue: init, lists, favorites, baseUrl, hideInactive
 
     const dialogProps = {
         show: init,
-        Header: <><FiHash />{id ? `Issue #${id}` : `New issue`}</>,
+        header: <label><FiHash />{id ? `Issue #${id}` : `New issue`}</label>,
         onShow: () => id ? refs.current.subjectInput.focus() : refs.current.projectSelect.focus(),
         onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
             const { defaultPrevented, key } = event;

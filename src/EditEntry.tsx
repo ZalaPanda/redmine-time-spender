@@ -53,7 +53,7 @@ export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive
 
     const dialogProps = {
         show: init,
-        Header: <><FiClock/>{id ? `Time entry #${id}` : `New time entry`}</>,
+        header: <label><FiClock/>{id ? `Time entry #${id}` : `New time entry`}</label>,
         onShow: () => refs.current.issueSelect.focus(),
         onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
             const { defaultPrevented, key } = event;

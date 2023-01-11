@@ -20,11 +20,11 @@ const titleStyles = (theme: Theme) => css({
 
 interface DialogProps extends HTMLAttributes<HTMLDivElement> {
     show: any,
-    Header?: JSX.Element,
+    header?: JSX.Element,
     onShow?: () => void
 };
 
-export const Dialog = ({ show, Header, children, onShow, ...props }: DialogProps) => {
+export const Dialog = ({ show, header = null, children, onShow, ...props }: DialogProps) => {
     const [minimized, setMinimized] = useState(false);
     const raiseHideSelect = useRaise('hide-select'); // NOTE: check Select.tsx:184
     const [{ y, scale }, setSpring] = useSpring(() => ({ y: -400, scale: 1, immediate: true, config: config.stiff }), []);
@@ -50,7 +50,7 @@ export const Dialog = ({ show, Header, children, onShow, ...props }: DialogProps
     }, [show]);
     return <animated.div css={dialogStyles} style={{ y, scale }} {...props}>
         <div {...propsTitle}>
-            {Header}<button {...propsMinimize}>{minimized ? <FiMinimize2 /> : <FiMaximize2 />}</button>
+            {header}<button {...propsMinimize}>{minimized ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         </div>
         <div {...propsContent}>{children}</div>
     </animated.div>;
