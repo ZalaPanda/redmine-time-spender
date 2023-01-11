@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, HTMLAttributes } from 'react';
 import { css, Theme } from '@emotion/react';
 import { padding } from 'polished';
 import { FiX } from 'react-icons/fi';
@@ -15,13 +15,22 @@ const toasterStyles = (theme: Theme) => css({
         '&>svg': { flexShrink: 0, cursor: 'pointer' }
     }
 });
+const noticeStyles = (theme: Theme) => css({
+    backgroundColor: theme.badge.bg, color: theme.badge.text
+});
 const errorStyles = (theme: Theme) => css({
-    color: theme.text, backgroundColor: theme.danger
+    backgroundColor: theme.danger, color: theme.text
 });
 
-const Toast = ({ message = '', onDismiss = () => { }, ...props }) => {
+interface ToastProps extends HTMLAttributes<HTMLDivElement> {
+    message?: JSX.Element,
+    interval?: number,
+    onDismiss?: () => void
+};
+
+const Toast = ({ message = null, interval = 10 * 1000, onDismiss, ...props }: ToastProps) => {
     useEffect(() => {
-        const timeout = setTimeout(onDismiss, 10 * 1000); // auto-close after 10s
+        const timeout = setTimeout(onDismiss, interval); // auto-close
         return () => clearTimeout(timeout);
     }, []);
     const propsDismiss = { onClick: onDismiss };
@@ -42,8 +51,11 @@ export const Toaster = () => {
         key, style, ...props,
         onDismiss: () => setItems(items => items.filter(item => item.key !== key))
     });
+    useListen('notice', (notice) => setItems(items => [...items, {
+        key: Date.now(), message: notice, interval: 3000, css: noticeStyles
+    }]));
     useListen('error', (error) => setItems(items => [...items, {
-        key: Date.now(), message: error?.message || String(error), css: errorStyles
+        key: Date.now(), message: error?.message || String(error), interval: 10000, css: errorStyles
     }]));
     return <div css={toasterStyles}>
         {transitions((style, item) => <Toast {...propsToast(style, item)} />)}
