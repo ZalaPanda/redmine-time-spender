@@ -400,9 +400,9 @@ export const App = () => {
                     setEntries(entries => entries.map(entry => entry.id === id ? { ...entry, ...update, project, issue, activity } : entry));
                 } else { // create
                     const response = await redmine.createEntry(entry);
-                    const { time_entry: { id, project, activity, hours, comments, spent_on, created_on, updated_on } } = await response.json();
-                    await database.table('entries').put({ id, project, activity, hours, comments, spent_on, created_on, updated_on });
-                    setEntries(entries => [{ id, project, issue, activity, hours, comments, spent_on, created_on, updated_on }, ...entries]);
+                    const { time_entry: { id, project, issue, activity, hours, comments, spent_on, created_on, updated_on } } = await response.json();
+                    await database.table('entries').put({ id, project, issue, activity, hours, comments, spent_on, created_on, updated_on });
+                    setEntries(entries => [{ id, project, issue, activity, hours, comments, spent_on, created_on, updated_on, ...entry }, ...entries]);
                 }
                 setEntry(undefined);
                 refs.current.addEntryButton.focus();
