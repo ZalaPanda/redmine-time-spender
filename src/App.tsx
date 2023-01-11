@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, startTransition, KeyboardEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, startTransition, KeyboardEvent, MouseEvent } from 'react';
 import { Globals } from '@react-spring/web';
 import { FiRefreshCw, FiClock, FiSettings, FiHome, FiHash } from 'react-icons/fi';
 import { css, Theme, ThemeProvider, Global } from '@emotion/react';
@@ -110,6 +110,7 @@ export const App = () => {
         refreshButton: undefined as HTMLButtonElement,
         searchInput: undefined as HTMLInputElement
     });
+    const raiseNotice = useRaise('notice');
     const raiseError = useRaise('error');
 
     const [settings, setSettings] = useState<Settings>();
@@ -383,6 +384,14 @@ export const App = () => {
     //     }
     // });
 
+    const propsLink = (url: string) => ({
+        href: url, target: '_blank', tabIndex: -1,
+        onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+            event.preventDefault();
+            chrome.tabs.create({ url, active: false });
+        }
+    });
+
     const propsEditEntry = ({
         show: !!entry, entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive,
         onSubmit: async (entry: Partial<EntryExt>) => {
@@ -403,6 +412,8 @@ export const App = () => {
                     const { time_entry: { id, project, issue, activity, hours, comments, spent_on, created_on, updated_on } } = await response.json();
                     await database.table('entries').put({ id, project, issue, activity, hours, comments, spent_on, created_on, updated_on });
                     setEntries(entries => [{ id, project, issue, activity, hours, comments, spent_on, created_on, updated_on, ...entry }, ...entries]);
+                    const url = settings?.redmine?.baseUrl && `${settings.redmine.baseUrl}/time_entries/${id}/edit`;
+                    url && raiseNotice(<label>Time entry <a {...propsLink(url)}>#{id}</a> created</label>);
                 }
                 setEntry(undefined);
                 refs.current.addEntryButton.focus();
@@ -471,6 +482,8 @@ export const App = () => {
                     const { issue: { id, project, subject, description, created_on, updated_on, closed_on } } = await response.json();
                     await database.table('issues').put({ id, project, subject, description, created_on, updated_on, closed_on });
                     setLists(lists => ({ ...lists, issues: [{ id, project, subject, description, created_on, updated_on, closed_on }, ...lists.issues] }));
+                    const url = settings?.redmine?.baseUrl && `${settings.redmine.baseUrl}/issues/${id}`;
+                    url && raiseNotice(<label>Issue <a {...propsLink(url)}>#{id}</a> created</label>);
                 }
                 setIssue(undefined);
                 refs.current.addIssueButton.focus();
