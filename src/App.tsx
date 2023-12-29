@@ -81,6 +81,7 @@ export type Settings = {
     theme?: { isDark: boolean, lineHeight: number },
     numberOfDays: number,
     workHours: [start: number, end: number],
+    hoursStep: number,
     autoRefresh?: false | 'hour' | 'day',
     lastRefresh?: string,
     skipAnimation: boolean,
@@ -93,6 +94,7 @@ export const defaultSettings: Settings = {
     theme: { isDark: true, lineHeight: 1.6 },
     numberOfDays: 14,
     workHours: [8, 16],
+    hoursStep: 0.25,
     autoRefresh: false,
     skipAnimation: false,
     hideInactive: { issues: false, activities: false, priorities: false }
@@ -393,7 +395,7 @@ export const App = () => {
     });
 
     const propsEditEntry = ({
-        show: !!entry, entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive,
+        show: !!entry, entry, lists, baseUrl: settings?.redmine?.baseUrl, favorites: settings?.favorites, hideInactive: settings?.hideInactive, hourStep:settings?.hoursStep,
         onSubmit: async (entry: Partial<EntryExt>) => {
             try {
                 const { id, project, issue, hours, activity, comments, spent_on } = entry;
