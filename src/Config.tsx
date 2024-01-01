@@ -73,7 +73,7 @@ export const Config = () => {
 
     const [help, setHelp] = useState<string | undefined>();
 
-    const { redmine: { baseUrl } = {}, theme: { isDark, lineHeight } = {}, numberOfDays, workHours: [workHoursStart, workHoursEnd], skipAnimation, autoRefresh, hideInactive } = settings ?? defaultSettings;
+    const { redmine: { baseUrl } = {}, theme: { isDark, lineHeight } = {}, numberOfDays, workHours: [workHoursStart, workHoursEnd], hoursStep, skipAnimation, autoRefresh, hideInactive } = settings ?? defaultSettings;
     const propsBaseUrlInput = {
         ref: (ref: HTMLInputElement) => refs.current.baseUrlInput = ref,
         name: 'BaseUrl', placeholder: 'Step 1 > Redmine URL', defaultValue: baseUrl, disabled: !!baseUrl,
@@ -169,6 +169,10 @@ export const Config = () => {
         defaultValue: workHoursEnd, type: 'number', step: 1, min: workHoursStart, max: 24,
         onChange: (event: ChangeEvent<HTMLInputElement>) => changeSettings({ workHours: [workHoursStart, Number(event.target.value) || workHoursEnd] })
     };
+    const propsHoursStep = {
+        defaultValue: hoursStep, type: 'number', step: 0.01, min: 0, max: 1,
+        onChange: (event: ChangeEvent<HTMLInputElement>) => changeSettings({ hoursStep: Number(event.target.value) || hoursStep })
+    };
     const propsAutoRefreshRadio = (value: false | 'hour' | 'day') => ({
         value, checked: autoRefresh === value, css: checkboxStyles,
         onChange: (autoRefresh: true | 'hour' | 'day') => changeSettings({ autoRefresh: autoRefresh === true ? false : autoRefresh })
@@ -238,6 +242,10 @@ export const Config = () => {
                 <input {...propsWorkHoursStartInput} />-<input {...propsWorkHoursEndInput} />
             </section>
             <section>
+                <label>Hours Step:</label>
+                <input {...propsHoursStep}/>
+            </section>
+           <section>
                 <label>Auto refresh:</label>
                 <Checkbox {...propsAutoRefreshRadio(false)}>Off</Checkbox>
                 <Checkbox {...propsAutoRefreshRadio('hour')}>Hourly</Checkbox>

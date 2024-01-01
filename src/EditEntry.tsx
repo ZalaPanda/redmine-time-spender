@@ -27,6 +27,7 @@ interface EditEntryProps {
     favorites?: Favorites,
     baseUrl?: string,
     hideInactive?: { issues: boolean, activities: boolean },
+    hourStep?: number,
     onSubmit: (entry: Partial<EntryExt>) => void,
     onDuplicate: (entry: Partial<EntryExt>) => void,
     onDelete: (entry: Partial<EntryExt>) => void,
@@ -35,7 +36,7 @@ interface EditEntryProps {
     onDismiss: () => void,
 };
 
-export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive, onSubmit, onDuplicate, onDelete, onEditIssue, onChangeFavorites, onDismiss }: EditEntryProps) => {
+export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive, hourStep, onSubmit, onDuplicate, onDelete, onEditIssue, onChangeFavorites, onDismiss }: EditEntryProps) => {
     const uniqueKey = useMemo(() => init ? Date.now() : undefined, [init]);
     const refs = useRef({
         issueSelect: undefined as HTMLInputElement
@@ -94,7 +95,7 @@ export const EditEntry = ({ entry: init, lists, favorites, baseUrl, hideInactive
         onMount: (innerRefs: MutableRefObject<{ input: HTMLInputElement }>) => refs.current.issueSelect = innerRefs.current.input
     };
     const propsHours = {
-        placeholder: 'Hours', value: hours || '', type: 'number', min: 0, max: 10, step: 0.25,
+        placeholder: 'Hours', value: hours || '', type: 'number', min: 0, max: 10, step: hourStep,
         onChange: (event: ChangeEvent<HTMLInputElement>) => setEntry(entry => ({ ...entry, hours: Number(event.target.value) }))
     };
     const propsActivity = {
